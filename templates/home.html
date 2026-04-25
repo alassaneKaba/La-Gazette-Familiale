@@ -24,15 +24,21 @@
     <div class="post-card">
         <form method="POST" action="/post" enctype="multipart/form-data">
             <textarea name="content" placeholder="Quoi de neuf, {{ session['user'] }} ?" required
-                      style="width: 100%; border: none; outline: none; resize: none; font-size: 1.1em; font-family: inherit; min-height: 60px; margin-bottom: 15px;"></textarea>
+                      style="width: 100%; border: none; outline: none; resize: none; font-size: 1.1em; font-family: inherit; min-height: 60px; margin-bottom: 10px;"></textarea>
+
+            <div id="preview-container" style="display: none; position: relative; margin-bottom: 15px;">
+                <img id="image-preview" src="#" alt="Aperçu" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; border: 1px solid #edf2f7;">
+                <button type="button" onclick="removeImage()"
+                        style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center;">✕</button>
+            </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f7fafc; padding-top: 15px;">
                 <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9em;">
                     <span style="font-size: 1.4em;">📸</span>
-                    <span style="border-bottom: 1px dashed #cbd5e0;">Ajouter une photo</span>
-                    <input type="file" name="image" style="display: none;">
+                    <span id="file-label-text">Ajouter une photo</span>
+                    <input type="file" id="image-input" name="image" accept="image/*" style="display: none;" onchange="previewFile()">
                 </label>
-                <button type="submit" style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s;">Publier</button>
+                <button type="submit" style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;">Publier</button>
             </div>
         </form>
     </div>
@@ -43,32 +49,30 @@
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] or 'default.png')) }}" class="avatar" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover;">
+                <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] or 'default.png')) }}" class="avatar">
                 <a href="{{ url_for('profile', username=post['username']) }}" class="username" style="text-decoration: none; color: #1a202c; font-weight: 700;">
                     {{ post['username'] }}
                 </a>
             </div>
 
             {% if session.get("user") == post['username'] %}
-            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer définitivement ce souvenir ?');" style="margin:0;">
-                <button type="submit" style="background:none; border:none; color: #cbd5e0; font-size: 1.1em; cursor:pointer;" title="Supprimer">🗑️</button>
+            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer ce souvenir ?');" style="margin:0;">
+                <button type="submit" style="background:none; border:none; color: #cbd5e0; font-size: 1.1em; cursor:pointer;">🗑️</button>
             </form>
             {% endif %}
         </div>
 
-        <div class="content" style="white-space: pre-wrap; margin-bottom: 15px; line-height: 1.5; color: #2d3748;">{{ post['content'] }}</div>
+        <div class="content" style="white-space: pre-wrap; margin-bottom: 15px;">{{ post['content'] }}</div>
 
         {% if post['image'] %}
-            <img src="{{ url_for('static', filename='uploads/' + post['image']) }}"
-            class="post-img"
-            alt="Photo de publication">
+            <img src="{{ url_for('static', filename='uploads/' + post['image']) }}" class="post-img" onclick="window.open(this.src)" style="cursor: pointer;">
         {% endif %}
 
         <div class="actions" style="display: flex; gap: 10px; border-top: 1px solid #f7fafc; padding-top: 12px;">
-            <button onclick="react({{ post['id'] }}, 'thumb')" class="btn-react" style="background: #f7fafc; border: none; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-weight: 600; color: #4a5568; transition: 0.2s;">
+            <button onclick="react({{ post['id'] }}, 'thumb')" class="btn-react">
                 👍 <span id="thumbs-{{ post['id'] }}">{{ post['thumbs'] }}</span>
             </button>
-            <button onclick="react({{ post['id'] }}, 'heart')" class="btn-react" style="background: #f7fafc; border: none; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-weight: 600; color: #4a5568; transition: 0.2s;">
+            <button onclick="react({{ post['id'] }}, 'heart')" class="btn-react">
                 ❤️ <span id="hearts-{{ post['id'] }}">{{ post['hearts'] }}</span>
             </button>
         </div>
@@ -76,7 +80,7 @@
         <div id="comments-{{ post['id'] }}" style="margin-top: 15px;">
             {% for c in comments %}{% if c['post_id'] == post['id'] %}
                 <div style="background: #f7fafc; padding: 12px; border-radius: 12px; margin-bottom: 8px; font-size: 0.95em; border-left: 4px solid #3182ce;">
-                    <strong style="color: #2d3748;">{{ c['username'] }}</strong> : {{ c['content'] }}
+                    <strong>{{ c['username'] }}</strong> : {{ c['content'] }}
                 </div>
             {% endif %}{% endfor %}
         </div>
@@ -84,8 +88,8 @@
         {% if session.get("user") %}
         <form onsubmit="addComment(event, {{ post['id'] }})" style="display: flex; gap: 10px; margin-top: 15px;">
             <input id="comment-input-{{ post['id'] }}" placeholder="Écrire un petit mot..."
-                   style="flex: 1; background: #fff; border: 1px solid #edf2f7; border-radius: 25px; padding: 10px 18px; outline: none; font-size: 0.9em; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);">
-            <button type="submit" style="background: #3182ce; color: white; border: none; border-radius: 50%; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1em;">➤</button>
+                   style="flex: 1; background: #fff; border: 1px solid #edf2f7; border-radius: 25px; padding: 10px 18px; outline: none; font-size: 0.9em;">
+            <button type="submit" style="background: #3182ce; color: white; border: none; border-radius: 50%; width: 38px; height: 38px; cursor: pointer;">➤</button>
         </form>
         {% endif %}
     </div>
@@ -93,7 +97,37 @@
 </main>
 
 <script>
-// Logique des réactions (Like/Cœur)
+// --- GESTION DE L'APERÇU IMAGE ---
+function previewFile() {
+    const preview = document.getElementById('image-preview');
+    const container = document.getElementById('preview-container');
+    const fileText = document.getElementById('file-label-text');
+    const file = document.getElementById('image-input').files[0];
+    const reader = new FileReader();
+
+    reader.onloadend = function () {
+        preview.src = reader.result;
+        container.style.display = "block";
+        fileText.innerText = "Changer la photo";
+    }
+
+    if (file) {
+        reader.readAsDataURL(file);
+    } else {
+        removeImage();
+    }
+}
+
+function removeImage() {
+    const input = document.getElementById('image-input');
+    const container = document.getElementById('preview-container');
+    const fileText = document.getElementById('file-label-text');
+    input.value = "";
+    container.style.display = "none";
+    fileText.innerText = "Ajouter une photo";
+}
+
+// --- LOGIQUE RÉACTIONS ---
 function react(postId, type) {
     fetch("/react/" + postId + "/" + type, {
         method: "POST",
@@ -111,11 +145,10 @@ function react(postId, type) {
             document.getElementById("thumbs-" + postId).innerText = data.thumb;
             document.getElementById("hearts-" + postId).innerText = data.heart;
         }
-    })
-    .catch(err => console.error("Erreur réaction:", err));
+    });
 }
 
-// Logique d'ajout de commentaire
+// --- LOGIQUE COMMENTAIRES ---
 function addComment(event, postId) {
     event.preventDefault();
     let input = document.getElementById("comment-input-" + postId);
@@ -137,8 +170,8 @@ function addComment(event, postId) {
         if (data && data.username) {
             let div = document.getElementById("comments-" + postId);
             div.innerHTML += `
-                <div style="background: #f7fafc; padding: 12px; border-radius: 12px; margin-bottom: 8px; font-size: 0.95em; border-left: 4px solid #3182ce;">
-                    <strong style="color: #2d3748;">${data.username}</strong> : ${data.content}
+                <div style="background: #f7fafc; padding: 12px; border-radius: 12px; margin-bottom: 8px; border-left: 4px solid #3182ce;">
+                    <strong>${data.username}</strong> : ${data.content}
                 </div>`;
             input.value = "";
         }

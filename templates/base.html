@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>La Gazette Familiale</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --primary: #3182ce;
+            --text-main: #1a202c;
+            --text-light: #718096;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--text-main);
+        }
+
+        /* Layout Principal en Grille */
+        .main-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 15px;
+            display: grid;
+            grid-template-columns: 1fr; /* 1 colonne par défaut (Mobile) */
+            gap: 25px;
+            align-items: start;
+        }
+
+        /* Mode PC / Tablette large */
+        @media (min-width: 900px) {
+            .main-container {
+                grid-template-columns: 280px 1fr; /* Barre latérale + Flux */
+            }
+            .sidebar {
+                position: sticky;
+                top: 85px; /* Reste visible au scroll */
+            }
+        }
+
+        /* Styles de navigation */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 10px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .nav-content {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #4a5568;
+            transition: 0.2s;
+        }
+
+        .nav-item:hover { background: #f7fafc; color: var(--primary); }
+
+        @media (max-width: 600px) {
+            .nav-text { display: none; }
+        }
+
+        @media (min-width: 900px) {
+            .main-container {
+                    display: grid;
+                    grid-template-columns: 280px 650px; /* On fixe la largeur du flux à 650px */
+                    justify-content: center; /* On centre le tout sur l'écran */
+                    gap: 30px;
+                }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-content">
+            <div class="nav-left">
+                <a href="/" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 28px;">🌳</span>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 1.2em; font-weight: 800; color: #1a202c; line-height: 1;">La Gazette</span>
+                        <span style="font-size: 0.9em; font-weight: 600; color: var(--primary); line-height: 1;">Familiale</span>
+                    </div>
+                </a>
+            </div>
+
+            <div class="nav-right" style="display: flex; align-items: center; gap: 5px;">
+                <a href="/" class="nav-item">🏠 <span class="nav-text" style="margin-left:5px;">Accueil</span></a>
+                {% if session.get("user") %}
+                    <a href="{{ url_for('profile', username=session['user']) }}" class="nav-item">👤 <span class="nav-text" style="margin-left:5px;">Profil</span></a>
+                    <a href="/notifications" class="nav-item">🔔</a>
+                    <a href="/settings" class="nav-item">⚙️</a>
+                    <a href="/logout" style="color: #e53e3e; text-decoration: none; font-weight: 700; font-size: 0.9em; margin-left:10px;">Déconnecter</a>
+                {% else %}
+                    <a href="/login" class="nav-item">Connexion</a>
+                    <a href="/register" style="background: var(--primary); color: white; padding: 8px 16px; border-radius: 10px; text-decoration: none; font-weight: 700; margin-left: 10px;">Rejoindre</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        {% block content %}{% endblock %}
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Notifications 🔔</h2>
+    {% if notifs %}
+        {% for n in notifs %}
+            <div class="post">
+                {{ n[0] }}
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Aucune notification</p>
+    {% endif %}
+</div>
+{% endblock %}

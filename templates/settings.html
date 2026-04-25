@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Paramètres du compte</h2>
+    <div class="post">
+        <form method="POST" enctype="multipart/form-data">
+            <label>Changer l'avatar :</label><br>
+            <input type="file" name="avatar" style="margin: 10px 0;"><br>
+
+            <label>Nouveau mot de passe :</label><br>
+            <input type="password" name="password" placeholder="Laissez vide pour ne pas changer" style="width:100%; padding:8px; margin: 10px 0; border-radius:5px; border:1px solid #ddd;"><br>
+
+            <button type="submit" style="background:#42b72a; color:white; padding:10px 20px; border:none; border-radius:5px; cursor:pointer;">
+                Enregistrer les modifications
+            </button>
+        </form>
+    </div>
+
+    <div style="margin-top: 50px; border-top: 1px solid #ddd; padding-top: 20px;">
+        <p style="color: red;">Zone dangereuse</p>
+        <form action="/delete_account" method="POST" onsubmit="return confirm('Es-tu vraiment sûr ? Cette action est irréversible.');">
+            <button type="submit" style="background:#dc3545; color:white; padding:5px 10px; border:none; border-radius:5px; cursor:pointer;">
+                Supprimer mon compte définitivement
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

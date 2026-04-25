@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="auth-form-container">
+    <div class="post-card" style="padding: 40px; text-align: center; border-top: 5px solid #1877f2;">
+        <div style="font-size: 50px; margin-bottom: 20px;">🔑</div>
+        <h2 style="color: #2c3e50; margin-bottom: 10px;">Heureux de vous revoir !</h2>
+        <p style="color: #7f8c8d; margin-bottom: 30px; font-size: 15px;">Entrez vos accès pour retrouver la tribu.</p>
+
+        <form method="POST">
+            <div style="margin-bottom: 15px; text-align: left;">
+                <label style="font-size: 13px; color: #2c3e50; font-weight: bold;">Votre adresse mail</label>
+                <input type="email" name="email" placeholder="ex: papa@mail.com" required
+                       style="width: 100%; padding: 14px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #f9f9f9; box-sizing: border-box;">
+            </div>
+
+            <div style="margin-bottom: 25px; text-align: left;">
+                <label style="font-size: 13px; color: #2c3e50; font-weight: bold;">Votre mot de passe</label>
+                <input type="password" name="password" placeholder="••••••••" required
+                       style="width: 100%; padding: 14px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #f9f9f9; box-sizing: border-box;">
+            </div>
+
+            <button type="submit" style="width: 100%; padding: 14px; background: #1877f2; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 17px; cursor: pointer;">
+                Entrer dans la maison 🏠
+            </button>
+        </form>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+            <p style="font-size: 14px; color: #65676b;">
+                Pas encore inscrit ?
+                <a href="/register" style="color: #42b72a; text-decoration: none; font-weight: bold;">Rejoins la tribu ici</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="auth-visual-container">
+    <div style="padding: 40px; text-align: center; color: #718096; margin-top: 50px;">
+        <span style="font-size: 100px;">👨‍👩‍👧‍👦</span>
+        <h1 style="color: #2c3e50; margin-top: 20px; font-size: 2.5em;">🌳 La Gazette</h1>
+        <p style="font-size: 1.2em; line-height: 1.6; max-width: 400px; margin: 20px auto;">
+            Votre espace privé et sécurisé pour partager les moments précieux de la famille, loin du bruit des grands réseaux sociaux.
+        </p>
+    </div>
+</div>
+
+<style>
+    /* Cache le visuel sur mobile */
+    @media (max-width: 899px) {
+        .auth-visual-container { display: none; }
+    }
+</style>
+
+{% endblock %}

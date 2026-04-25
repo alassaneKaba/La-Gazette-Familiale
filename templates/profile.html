@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container">
+    <div style="display:flex; align-items:center; gap:20px; background:white; padding:20px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+        <img class="avatar" style="width:80px !important; height:80px !important;"
+             src="{{ url_for('static', filename='avatars/' + (posts[0]['user_avatar'] if posts else 'default.png')) }}">
+        <h2>Profil de {{ username }}</h2>
+    </div>
+
+    <h3 style="margin-top:25px;">Publications</h3>
+
+    {% if not posts %}
+        <p>Cet utilisateur n'a pas encore posté.</p>
+    {% endif %}
+
+    {% for post in posts %}
+        <div class="post">
+            <div class="content">{{ post['content'] }}</div>
+
+            {% if post['image'] %}
+                <img class="post-img" src="{{ url_for('static', filename='uploads/' + post['image']) }}" style="width:100%; border-radius:8px; margin-top:10px;">
+            {% endif %}
+
+            <div class="actions" style="color: #65676b; font-size: 14px; border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px;">
+                👍 {{ post['thumbs'] }} | ❤️ {{ post['hearts'] }}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

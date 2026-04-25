@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="auth-form-container">
+    <div class="post-card" style="padding: 30px; border-top: 5px solid #2ecc71;">
+        <h2 style="text-align: center; color: #2c3e50; margin-bottom: 10px;">🏠 La Tribu s'agrandit !</h2>
+        <p style="text-align: center; color: #7f8c8d; margin-bottom: 25px; font-size: 15px;">C'est rapide et facile.</p>
+
+        <form method="POST" enctype="multipart/form-data" id="registerForm">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input name="firstname" placeholder="Prénom" required style="width: 50%; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+                <input name="lastname" placeholder="Nom" required style="width: 50%; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+            </div>
+
+            <input type="email" name="email" placeholder="Adresse e-mail" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; box-sizing: border-box;">
+            <input type="password" name="password" placeholder="Nouveau mot de passe" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; box-sizing: border-box;">
+            <input type="password" name="confirm_password" placeholder="Confirmer" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; box-sizing: border-box;">
+
+            <label style="font-size: 13px; color: #65676b; font-weight: bold;">Photo de profil (optionnel) :</label>
+            <input type="file" name="avatar" style="margin: 10px 0; font-size: 13px; display: block;">
+
+            <button type="submit" style="width: 100%; padding: 14px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 17px; cursor: pointer; margin-top: 15px;">
+                C'est parti ! 🚀
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="auth-visual-container">
+    <div style="padding: 40px; text-align: center; color: #718096; margin-top: 50px;">
+        <span style="font-size: 100px;">❤️</span>
+        <h2 style="color: #2c3e50; margin-top: 20px;">Un espace pour nous</h2>
+        <p style="font-size: 1.1em; line-height: 1.6; max-width: 400px; margin: 20px auto;">
+            Ici, on partage les premiers pas du petit dernier, les photos de vacances, les recettes de grand-mère... tout ce qui fait battre le cœur de notre famille.
+        </p>
+    </div>
+</div>
+
+<style>
+    @media (max-width: 899px) {
+        .auth-visual-container { display: none; }
+    }
+</style>
+
+{% endblock %}

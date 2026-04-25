@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block content %}
+
+<aside class="sidebar">
+    <div class="post-card" style="text-align: center; border-top: 4px solid #3182ce;">
+        {% if session.get("user") %}
+            <div style="font-size: 50px; margin-bottom: 10px;">🌳</div>
+            <h3 style="margin: 0; color: #2d3748;">Bonjour,</h3>
+            <h2 style="margin: 5px 0; color: #1a202c; font-size: 1.4em;">{{ session['user'] }}</h2>
+            <p style="font-size: 0.9em; color: #718096; line-height: 1.4;">Bienvenue dans votre journal de bord familial.</p>
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #edf2f7;">
+                <a href="{{ url_for('profile', username=session['user']) }}" style="text-decoration: none; color: #3182ce; font-weight: 700; font-size: 0.9em;">Voir mon mur personnel →</a>
+            </div>
+        {% else %}
+            <p style="color: #718096;">Connectez-vous pour voir les derniers souvenirs de la famille.</p>
+            <a href="/login" style="display: inline-block; margin-top: 10px; background: #3182ce; color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: bold;">Se connecter</a>
+        {% endif %}
+    </div>
+</aside>
+
+<main class="feed">
+
+    {% if session.get("user") %}
+    <div class="post-card">
+        <form method="POST" action="/post" enctype="multipart/form-data">
+            <textarea name="content" placeholder="Quoi de neuf, {{ session['user'] }} ?" required
+                      style="width: 100%; border: none; outline: none; resize: none; font-size: 1.1em; font-family: inherit; min-height: 60px; margin-bottom: 15px;"></textarea>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f7fafc; padding-top: 15px;">
+                <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9em;">
+                    <span style="font-size: 1.4em;">📸</span>
+                    <span style="border-bottom: 1px dashed #cbd5e0;">Ajouter une photo</span>
+                    <input type="file" name="image" style="display: none;">
+                </label>
+                <button type="submit" style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s;">Publier</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    {% for post in posts %}
+    <div class="post-card">
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] or 'default.png')) }}" class="avatar" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover;">
+                <a href="{{ url_for('profile', username=post['username']) }}" class="username" style="text-decoration: none; color: #1a202c; font-weight: 700;">
+                    {{ post['username'] }}
+                </a>
+            </div>
+
+            {% if session.get("user") == post['username'] %}
+            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer définitivement ce souvenir ?');" style="margin:0;">
+                <button type="submit" style="background:none; border:none; color: #cbd5e0; font-size: 1.1em; cursor:pointer;" title="Supprimer">🗑️</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <div class="content" style="white-space: pre-wrap; margin-bottom: 15px; line-height: 1.5; color: #2d3748;">{{ post['content'] }}</div>
+
+        {% if post['image'] %}
+            <img src="{{ url_for('static', filename='uploads/' + post['image']) }}"
+            class="post-img"
+            alt="Photo de publication">
+        {% endif %}
+
+        <div class="actions" style="display: flex; gap: 10px; border-top: 1px solid #f7fafc; padding-top: 12px;">
+            <button onclick="react({{ post['id'] }}, 'thumb')" class="btn-react" style="background: #f7fafc; border: none; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-weight: 600; color: #4a5568; transition: 0.2s;">
+                👍 <span id="thumbs-{{ post['id'] }}">{{ post['thumbs'] }}</span>
+            </button>
+            <button onclick="react({{ post['id'] }}, 'heart')" class="btn-react" style="background: #f7fafc; border: none; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-weight: 600; color: #4a5568; transition: 0.2s;">
+                ❤️ <span id="hearts-{{ post['id'] }}">{{ post['hearts'] }}</span>
+            </button>
+        </div>
+
+        <div id="comments-{{ post['id'] }}" style="margin-top: 15px;">
+            {% for c in comments %}{% if c['post_id'] == post['id'] %}
+                <div style="background: #f7fafc; padding: 12px; border-radius: 12px; margin-bottom: 8px; font-size: 0.95em; border-left: 4px solid #3182ce;">
+                    <strong style="color: #2d3748;">{{ c['username'] }}</strong> : {{ c['content'] }}
+                </div>
+            {% endif %}{% endfor %}
+        </div>
+
+        {% if session.get("user") %}
+        <form onsubmit="addComment(event, {{ post['id'] }})" style="display: flex; gap: 10px; margin-top: 15px;">
+            <input id="comment-input-{{ post['id'] }}" placeholder="Écrire un petit mot..."
+                   style="flex: 1; background: #fff; border: 1px solid #edf2f7; border-radius: 25px; padding: 10px 18px; outline: none; font-size: 0.9em; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);">
+            <button type="submit" style="background: #3182ce; color: white; border: none; border-radius: 50%; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1em;">➤</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+</main>
+
+<script>
+// Logique des réactions (Like/Cœur)
+function react(postId, type) {
+    fetch("/react/" + postId + "/" + type, {
+        method: "POST",
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => {
+        if (response.status === 403 || response.status === 401) {
+            window.location.href = "/login";
+            return;
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data && data.thumb !== undefined) {
+            document.getElementById("thumbs-" + postId).innerText = data.thumb;
+            document.getElementById("hearts-" + postId).innerText = data.heart;
+        }
+    })
+    .catch(err => console.error("Erreur réaction:", err));
+}
+
+// Logique d'ajout de commentaire
+function addComment(event, postId) {
+    event.preventDefault();
+    let input = document.getElementById("comment-input-" + postId);
+    if (!input.value.trim()) return;
+
+    fetch("/comment/" + postId, {
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "content=" + encodeURIComponent(input.value)
+    })
+    .then(res => {
+        if (res.status === 403 || res.status === 401) {
+            window.location.href = "/login";
+            return;
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data && data.username) {
+            let div = document.getElementById("comments-" + postId);
+            div.innerHTML += `
+                <div style="background: #f7fafc; padding: 12px; border-radius: 12px; margin-bottom: 8px; font-size: 0.95em; border-left: 4px solid #3182ce;">
+                    <strong style="color: #2d3748;">${data.username}</strong> : ${data.content}
+                </div>`;
+            input.value = "";
+        }
+    });
+}
+</script>
+{% endblock %}

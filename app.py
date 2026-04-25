@@ -9,9 +9,12 @@ app.secret_key = os.urandom(24)
 
 # Configuration des dossiers
 UPLOAD_FOLDER = "static/uploads"
-AVATAR_FOLDER = "static/avatars"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+AVATAR_FOLDER = "static/avatars"  # Le chemin vers tes avatars
 
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["AVATAR_FOLDER"] = AVATAR_FOLDER  # CETTE LIGNE MANQUAIT PROBABLEMENT
+
+# On s'assure que les dossiers existent sur l'ordinateur
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(AVATAR_FOLDER, exist_ok=True)
 
@@ -70,56 +73,53 @@ def home():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form["email"]  # Connexion par Email
-        password = request.form["password"]
+        email = request.form.get("email")
+        password = request.form.get("password")
         with get_db() as db:
-            user = db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+            user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
 
-        if user and check_password_hash(user["password"], password):
-            session["user"] = user["username"]  # On stocke le pseudo (Prénom Nom) en session
-            return redirect("/")
-
-        flash("Identifiants incorrects ❌", "error")
-        return render_template("login.html")
+            if user and check_password_hash(user["password"], password):
+                session["user"] = user["username"]
+                # AJOUT DE L'AVATAR EN SESSION
+                session["user_avatar"] = user["avatar"] if user["avatar"] else "default.png"
+                return redirect("/")
+            else:
+                flash("Email ou mot de passe incorrect.", "danger")
     return render_template("login.html")
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        email = request.form["email"]
-        firstname = request.form["firstname"].strip()
-        lastname = request.form["lastname"].strip()
-        password = request.form["password"]
+        firstname = request.form.get("firstname")
+        lastname = request.form.get("lastname")
+        email = request.form.get("email")
+        username = request.form.get("username")
+        password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
-
-        # Le pseudo est la combinaison Prénom + Nom
-        username = f"{firstname} {lastname}"
+        avatar = request.files.get("avatar")
 
         if password != confirm_password:
-            flash("Les mots de passe ne correspondent pas.", "error")
-            return render_template("register.html")
+            flash("Les mots de passe ne correspondent pas.", "danger")
+            return redirect("/register")
+
+        filename = "default.png"
+        if avatar:
+            filename = secure_filename(f"{username}_{avatar.filename}")
+            avatar.save(os.path.join(app.config["AVATAR_FOLDER"], filename))
 
         hashed_password = generate_password_hash(password)
-        file = request.files.get("avatar")
-        avatar_filename = "default.png"
 
-        if file and file.filename != "":
-            avatar_filename = secure_filename(file.filename)
-            file.save(os.path.join(AVATAR_FOLDER, avatar_filename))
-
-        with get_db() as db:
-            try:
-                db.execute("""
-                    INSERT INTO users (email, firstname, lastname, username, password, avatar) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (email, firstname, lastname, username, hashed_password, avatar_filename))
+        try:
+            with get_db() as db:
+                db.execute("INSERT INTO users (firstname, lastname, email, username, password, avatar) VALUES (?, ?, ?, ?, ?, ?)",
+                           (firstname, lastname, email, username, hashed_password, filename))
                 db.commit()
-                flash("Inscription réussie ! Connectez-vous.", "success")
-                return redirect("/login")
-            except sqlite3.IntegrityError:
-                flash("Cet email ou ce nom complet est déjà utilisé.", "error")
-                return render_template("register.html")
+            flash("Compte créé ! Connectez-vous.", "success")
+            return redirect("/login")
+        except sqlite3.IntegrityError:
+            flash("Ce nom d'utilisateur ou cet e-mail est déjà utilisé.", "danger")
+            return redirect("/register")
 
     return render_template("register.html")
 

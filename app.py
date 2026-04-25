@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, jsonify, flash
+from flask import Flask, render_template, request, redirect, session, jsonify, flash, url_for
 import sqlite3, os
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -57,7 +57,13 @@ def home():
             JOIN users ON posts.username = users.username
             ORDER BY posts.id DESC
         """).fetchall()
-        comments = db.execute("SELECT * FROM comments").fetchall()
+
+        # Modification ici : on nomme l'avatar explicitement 'comm_avatar'
+        comments = db.execute('''
+            SELECT comments.*, users.avatar AS comm_avatar
+            FROM comments 
+            JOIN users ON comments.username = users.username
+        ''').fetchall()
     return render_template("home.html", posts=posts, comments=comments)
 
 
@@ -247,6 +253,19 @@ def delete_account():
     flash("Compte supprimé définitivement.", "info")
     return redirect("/")
 
+
+@app.route("/delete/<int:post_id>", methods=["POST"])
+def delete_post(post_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    with get_db() as db:
+        # On vérifie que c'est bien l'auteur qui supprime
+        db.execute("DELETE FROM posts WHERE id = ? AND username = ?", (post_id, session["user"]))
+        db.commit()
+
+    # C'est cette ligne qui évite le "Not Found"
+    return redirect(url_for("home"))
 
 @app.route("/logout")
 def logout():

@@ -25,16 +25,18 @@
             <textarea name="content" placeholder="Quoi de neuf, {{ session['user'] }} ?" required
                       style="width: 100%; border: none; outline: none; resize: none; font-size: 1.1em; font-family: inherit; min-height: 60px; margin-bottom: 10px;"></textarea>
 
-            <div id="preview-container" style="display: none; position: relative; margin-bottom: 15px;">
-                <img id="image-preview" src="#" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; border: 1px solid #edf2f7;">
-                <button type="button" onclick="removeImage()"
-                        style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;">✕</button>
+            <div id="preview-container" style="display: none; margin-bottom: 15px; border: 1px solid #edf2f7; padding: 10px; border-radius: 12px; background: #f8fafc;">
+                <div id="preview-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;">
+                    </div>
+                <button type="button" onclick="removeFiles()" style="margin-top: 10px; background: #e53e3e; color: white; border: none; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8em; font-weight: bold;">
+                    Tout effacer
+                </button>
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f7fafc; padding-top: 15px;">
-                <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9em;">
-                    <span>📸 Photo</span>
-                    <input type="file" id="image-input" name="image" accept="image/*" style="display: none;" onchange="previewFile()">
+                <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9em; background: #edf2f7; padding: 8px 15px; border-radius: 20px; transition: 0.2s;" class="upload-btn">
+                    <span>📸 Ajouter photos / vidéos (plusieurs possibles)</span>
+                    <input type="file" id="image-input" name="images" accept="image/*,video/*" multiple style="display: none;" onchange="previewFiles()">
                 </label>
                 <button type="submit" style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;">Publier</button>
             </div>
@@ -46,11 +48,23 @@
     <div class="post-card" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
 
         <div style="padding: 15px 20px 5px 20px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}" class="avatar">
-                <a href="{{ url_for('profile', username=post['username']) }}" style="text-decoration: none; color: #1a202c; font-weight: 700;">
-                    {{ post['username'] }}
-                </a>
+            <div class="carousel-container" id="carousel-{{ post.id }}">
+                <div class="carousel-items">
+                    {% for media in post.medias %}
+                        <div class="carousel-item {% if loop.first %}active{% endif %}">
+                            {% if media.file_type == 'video' %}
+                                <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls></video>
+                            {% else %}
+                                <img src="{{ url_for('static', filename='uploads/' + media.filename) }}">
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% if post.medias|length > 1 %}
+                    <button class="prev" onclick="moveSlide('{{ post.id }}', -1)">&#10094;</button>
+                    <button class="next" onclick="moveSlide('{{ post.id }}', 1)">&#10095;</button>
+                {% endif %}
             </div>
 
             {% if session.get("user") == post['username'] %}
@@ -61,10 +75,6 @@
         </div>
 
         <div style="padding: 10px 20px; white-space: pre-wrap; color: #2d3748;">{{ post['content'] }}</div>
-
-        {% if post['image'] %}
-            <img src="{{ url_for('static', filename='uploads/' + post['image']) }}" class="post-img" style="border-radius: 0; margin: 0; cursor: pointer;" onclick="window.open(this.src)">
-        {% endif %}
 
         <div style="display: flex; justify-content: space-between; padding: 10px 20px; font-size: 0.9em; color: #65676b;">
             <div>👍 <span id="thumbs-{{ post['id'] }}">{{ post['thumbs'] }}</span></div>
@@ -148,17 +158,112 @@ function addComment(event, postId) {
     });
 }
 
-function previewFile() {
-    const preview = document.getElementById('image-preview');
-    const file = document.getElementById('image-input').files[0];
-    const reader = new FileReader();
-    reader.onloadend = () => { preview.src = reader.result; document.getElementById('preview-container').style.display = "block"; }
-    if (file) reader.readAsDataURL(file);
+function previewFiles() {
+    const previewGrid = document.getElementById('preview-grid');
+    const container = document.getElementById('preview-container');
+    const files = document.getElementById('image-input').files;
+    previewGrid.innerHTML = ""; // On vide l'aperçu précédent
+    if (files.length > 0) {
+        container.style.display = "block";
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            const div = document.createElement('div');
+            div.style.position = "relative";
+            reader.onload = (e) => {
+                if (file.type.startsWith('video/')) {
+                    div.innerHTML = `<video src="${e.target.result}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;"></video>`;
+                } else {
+                    div.innerHTML = `<img src="${e.target.result}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">`;
+                }
+            };
+            reader.readAsDataURL(file);
+            previewGrid.appendChild(div);
+        });
+    } else {
+        container.style.display = "none";
+    }
 }
 
-function removeImage() {
+function removeFiles() {
     document.getElementById('image-input').value = "";
+    document.getElementById('preview-grid').innerHTML = "";
     document.getElementById('preview-container').style.display = "none";
 }
+
+    function moveSlide(postId, direction) {
+    const container = document.getElementById(`carousel-${postId}`);
+    const items = container.querySelectorAll('.carousel-item');
+    let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
+
+    items[activeIndex].classList.remove('active');
+
+    activeIndex += direction;
+    if (activeIndex >= items.length) activeIndex = 0;
+    if (activeIndex < 0) activeIndex = items.length - 1;
+
+    items[activeIndex].classList.add('active');
+}
+
+// Gestion des touches du clavier
+document.addEventListener('keydown', (e) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        // On cherche le post qui est actuellement le plus au centre de l'écran
+        const carousels = document.querySelectorAll('.carousel-container');
+        let closest = null;
+        let minDistance = Infinity;
+
+        carousels.forEach(c => {
+            const rect = c.getBoundingClientRect();
+            const distance = Math.abs(rect.top);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closest = c.id.split('-')[1];
+            }
+        });
+
+        if (closest) {
+            if (e.key === "ArrowLeft") moveSlide(closest, -1);
+            else moveSlide(closest, 1);
+        }
+    }
+});
+
+function moveSlide(postId, direction) {
+    const container = document.getElementById(`carousel-${postId}`);
+    const items = container.querySelectorAll('.carousel-item');
+    let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
+
+    items[activeIndex].classList.remove('active');
+
+    activeIndex += direction;
+    if (activeIndex >= items.length) activeIndex = 0;
+    if (activeIndex < 0) activeIndex = items.length - 1;
+
+    items[activeIndex].classList.add('active');
+}
+
+// Gestion des touches du clavier
+document.addEventListener('keydown', (e) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        // On cherche le post qui est actuellement le plus au centre de l'écran
+        const carousels = document.querySelectorAll('.carousel-container');
+        let closest = null;
+        let minDistance = Infinity;
+
+        carousels.forEach(c => {
+            const rect = c.getBoundingClientRect();
+            const distance = Math.abs(rect.top);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closest = c.id.split('-')[1];
+            }
+        });
+
+        if (closest) {
+            if (e.key === "ArrowLeft") moveSlide(closest, -1);
+            else moveSlide(closest, 1);
+        }
+    }
+});
 </script>
 {% endblock %}

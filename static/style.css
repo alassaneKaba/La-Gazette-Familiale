@@ -122,3 +122,40 @@ nav {
 .action-btn span {
     display: inline-block;
 }
+
+.carousel-container {
+    position: relative;
+    width: 100%;
+    max-height: 500px;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.carousel-item {
+    display: none;
+    text-align: center;
+}
+
+.carousel-item.active {
+    display: block;
+}
+
+.carousel-item img, .carousel-item video {
+    max-width: 100%;
+    max-height: 500px;
+}
+
+.prev, .next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.5);
+    color: white;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+}
+
+.next { right: 0; }
+.prev { left: 0; }

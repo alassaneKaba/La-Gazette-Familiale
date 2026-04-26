@@ -18,6 +18,9 @@ app.config["AVATAR_FOLDER"] = AVATAR_FOLDER  # CETTE LIGNE MANQUAIT PROBABLEMENT
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(AVATAR_FOLDER, exist_ok=True)
 
+# Ajoutez 'mp4', 'mov' aux extensions autorisées si vous avez une fonction de vérification
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'webm'}
+
 
 # --- UTILITAIRES ---
 
@@ -52,7 +55,8 @@ def check_email(email):
 @app.route("/")
 def home():
     with get_db() as db:
-        posts = db.execute("""
+        # 1. On récupère les posts
+        posts_query = db.execute("""
             SELECT posts.*, users.avatar AS user_avatar,
                 (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='thumb') as thumbs,
                 (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='heart') as hearts
@@ -60,8 +64,12 @@ def home():
             JOIN users ON posts.username = users.username
             ORDER BY posts.id DESC
         """).fetchall()
-
-        # Modification ici : on nomme l'avatar explicitement 'comm_avatar'
+        # Convertir en liste de dictionnaires pour pouvoir ajouter les médias
+        posts = [dict(row) for row in posts_query]
+        # 2. Pour chaque post, on va chercher ses médias
+        for post in posts:
+            medias = db.execute("SELECT * FROM post_medias WHERE post_id = ?", (post['id'],)).fetchall()
+            post['medias'] = medias  # On ajoute la liste des médias au post
         comments = db.execute('''
             SELECT comments.*, users.avatar AS comm_avatar
             FROM comments 
@@ -127,16 +135,22 @@ def register():
 @app.route("/post", methods=["POST"])
 @login_required
 def post():
-    content = request.form["content"]
-    file = request.files.get("image")
-    filename = None
-    if file and file.filename != "":
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+    content = request.form.get("content")
+    files = request.files.getlist("images")  # On récupère une liste de fichiers
     with get_db() as db:
-        db.execute("INSERT INTO posts (username, content, likes, image) VALUES (?, ?, 0, ?)",
-                   (session["user"], content, filename))
-        db.commit()
+        # Création du post
+        cursor = db.execute("INSERT INTO posts (username, content) VALUES (?, ?)",
+                            (session["user"], content))
+        post_id = cursor.lastrowid
+        # Gestion des médias multiples
+        for file in files:
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+                # Déterminer si c'est une vidéo ou une image
+                file_type = 'video' if filename.rsplit('.', 1)[1].lower() in ['mp4', 'mov', 'webm'] else 'image'
+                db.execute("INSERT INTO post_medias (post_id, filename, file_type) VALUES (?, ?, ?)",
+                           (post_id, filename, file_type))
     return redirect("/")
 
 
@@ -300,6 +314,15 @@ def init_db():
         """)
         db.execute(
             "CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, content TEXT, likes INTEGER DEFAULT 0, image TEXT)")
+        db.execute("""
+                    CREATE TABLE IF NOT EXISTS post_medias (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        post_id INTEGER,
+                        filename TEXT,
+                        file_type TEXT, -- 'image' ou 'video'
+                        FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE
+                    )
+                """)
         db.execute(
             "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER, username TEXT, content TEXT)")
         db.execute(

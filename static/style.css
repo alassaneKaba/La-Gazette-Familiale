@@ -147,14 +147,26 @@ nav {
 }
 
 .prev, .next {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(0,0,0,0.5);
+    /* Étape 1 : On fixe une largeur et une hauteur identiques */
+    width: 45px;  /* Ajuste la taille selon tes goûts */
+    height: 45px;
+
+    /* Étape 2 : On force un ratio 1:1 pour garantir le cercle */
+    aspect-ratio: 1 / 1;
+
+    /* Étape 3 : On s'assure que le cercle est appliqué */
+    border-radius: 50%;
+
+    /* Étape 4 : Sécurité anti-étirement (IMPORTANT) */
+    flex-shrink: 0;  /* Si tu utilises flexbox pour le conteneur */
+    align-self: center; /* Si grid/flex, centre le bouton sans l'étirer */
+
+    /* Le reste de tes styles (background, color, etc.) reste identique */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5); /* Exemple */
     color: white;
-    padding: 10px;
-    border: none;
-    cursor: pointer;
 }
 
 .next { right: 0; }

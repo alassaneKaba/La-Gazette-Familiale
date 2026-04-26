@@ -20,29 +20,9 @@
             background-color: var(--bg-color);
             margin: 0;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            color: var(--text-main);
         }
 
-        /* Layout Principal */
-        .main-container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 20px 15px;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 25px;
-            align-items: start;
-        }
-
-        @media (min-width: 900px) {
-            .main-container {
-                grid-template-columns: 280px 650px;
-                justify-content: center;
-                gap: 30px;
-            }
-        }
-
-        /* Styles de navigation */
+        /* Barre de navigation */
         .navbar {
             background: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
@@ -75,7 +55,27 @@
 
         .nav-item:hover { background: #f7fafc; color: var(--primary); }
 
-        /* Badge notification admin */
+        /* Conteneur principal avec GRILLE */
+        .main-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 15px;
+            display: grid;
+            grid-template-columns: 1fr; /* 1 seule colonne par défaut (mobile) */
+            gap: 25px;
+            align-items: start;
+            box-sizing: border-box;
+        }
+
+        /* GRILLE POUR PC */
+        @media (min-width: 900px) {
+            .main-container {
+                grid-template-columns: 280px 650px; /* On fixe les colonnes */
+                justify-content: center;
+            }
+        }
+
+        /* Badge admin */
         .admin-badge {
             background: var(--danger);
             color: white;
@@ -83,33 +83,83 @@
             padding: 2px 6px;
             border-radius: 10px;
             margin-left: 5px;
-            min-width: 10px;
-            text-align: center;
         }
 
-        /* Styles pour les messages Flash */
+        /* Flash Messages */
         .flash-messages {
-            grid-column: 1 / -1; /* Prend toute la largeur sur la grille */
-            margin-bottom: 10px;
+            grid-column: 1 / -1; /* Occupe toute la largeur de la grille */
         }
-
         .flash-msg {
-            padding: 15px 20px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            font-weight: 600;
-            font-size: 0.95em;
-            border: 1px solid rgba(0,0,0,0.05);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
             text-align: center;
+            font-weight: 600;
         }
+        .flash-info { background: #ebf8ff; color: #2a4365; }
+        .flash-success { background: #c6f6d5; color: #22543d; }
+        .flash-danger { background: #fed7d7; color: #822727; }
 
-        .flash-success { background: #c6f6d5; color: #22543d; border-left: 5px solid var(--success); }
-        .flash-danger { background: #fed7d7; color: #822727; border-left: 5px solid var(--danger); }
-        .flash-info { background: #ebf8ff; color: #2a4365; border-left: 5px solid var(--info); }
+        /* AJUSTEMENTS MOBILE  */
+        @media (max-width: 800px) {
+            /* --- 1. CONTENU (Messages / Cartes) --- */
+            div[style*="display: grid"],
+            .main-container {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 30px !important;
+                padding: 20px 10px !important;
+            }
 
-        @media (max-width: 600px) {
-            .nav-text { display: none; }
+            /* On s'assure que la carte ne dépasse pas la largeur du téléphone */
+            .post-card, div[style*="max-width: 450px"], div[style*="max-width: 480px"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+            }
+
+            /* --- 2. BARRE DE NAVIGATION (NAVBAR) --- */
+            .nav-content {
+                padding: 5px 4px !important; /* Réduction extrême des bords */
+                gap: 2px !important;
+            }
+
+            /* On réduit la taille du logo au strict minimum */
+            .nav-left span {
+                font-size: 16px !important;
+            }
+
+            /* ON CACHE LE TEXTE POUR NE GARDER QUE LES ICÔNES */
+            /* Cela libère énormément de place pour le bouton Déconnecter/Rejoindre */
+            .nav-item .nav-text,
+            .nav-item span:not(.admin-badge) {
+                display: none !important;
+            }
+
+            /* Ajustement des boutons de droite (Rejoindre / Déconnecter) */
+            .nav-right {
+                gap: 3px !important;
+            }
+
+            .nav-right a {
+                padding: 5px 8px !important;
+                font-size: 11px !important; /* On baisse encore un peu la taille */
+                letter-spacing: -0.5px;      /* On resserre les lettres */
+                white-space: nowrap !important;
+            }
+
+            /* Si c'est le bouton bleu "Rejoindre" */
+            .nav-right a[href="/register"], .nav-right a.btn-primary {
+                padding: 5px 6px !important;
+            }
+
+            /* Si c'est le bouton rouge "Déconnecter" */
+            .nav-right a[href="/logout"] {
+                background: #fff5f5 !important;
+                color: #e53e3e !important;
+                font-weight: bold !important;
+            }
         }
     </style>
 </head>
@@ -120,7 +170,7 @@
             <div class="nav-left">
                 <a href="/" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 28px;">🌳</span>
-                    <div style="display: flex; flex-direction: column;">
+                    <div class="nav-text-container" style="display: flex; flex-direction: column;">
                         <span style="font-size: 1.2em; font-weight: 800; color: #1a202c; line-height: 1;">La Gazette</span>
                         <span style="font-size: 0.9em; font-weight: 600; color: var(--primary); line-height: 1;">Familiale</span>
                     </div>

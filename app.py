@@ -4,9 +4,20 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from datetime import datetime, timezone
+from flask_mail import Mail, Message
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+# Configuration de Flask-Mail (Exemple pour Gmail)
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'alassanekaba2008@gmail.com'
+app.config['MAIL_PASSWORD'] = 'vecuhnaguawnofzc' # Ce n'est pas ton mdp habituel
+app.config['MAIL_DEFAULT_SENDER'] = ('La Gazette Familiale', 'alassanekaba2008@gmail.com')
+
+mail = Mail(app)
 
 # Configuration des dossiers
 UPLOAD_FOLDER = "static/uploads"
@@ -79,21 +90,83 @@ def home():
     return render_template("home.html", posts=posts, comments=comments)
 
 
+@app.route("/admin/users")
+def admin_users():
+    # Si la session ne contient pas is_admin ou si c'est False, on renvoie à l'accueil
+    #if not session.get("is_admin"):
+        #return redirect("/")
+    db = get_db()
+    pending = db.execute("SELECT * FROM users WHERE is_approved = 0").fetchall()
+    return render_template("admin.html", users=pending)
+
+
+@app.route("/admin/approve/<int:user_id>", methods=["POST"])
+def approve_user(user_id):
+    if not session.get("is_admin"):
+        return redirect("/")
+
+    db = get_db()
+    # 1. On récupère les infos
+    user = db.execute("SELECT email, firstname FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    if user:
+        # 2. On valide en base
+        db.execute("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
+        db.commit()
+        # 3. ON INSÈRE TON NOUVEAU CODE ICI
+        try:
+            msg = Message("Bienvenue dans la tribu ! ✅", recipients=[user['email']])
+            # On utilise .html au lieu de .body pour envoyer le joli design
+            msg.html = f"""
+            <div style="font-family: sans-serif; color: #2d3748; max-width: 600px; border: 1px solid #e2e8f0; padding: 20px; border-radius: 15px;">
+                <h1 style="color: #3182ce;">🌳 La Gazette Familiale</h1>
+                <p>Bonjour <strong>{user['firstname']}</strong>,</p>
+                <p>Bonne nouvelle ! Ta demande d'inscription a été <strong>acceptée</strong>.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="http://127.0.0.1:5000/login" 
+                       style="background-color: #38a169; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                       Se connecter à la maison
+                    </a>
+                </div>
+                <p style="font-size: 0.9em; color: #718096;">À très vite,<br>L'administration de la famille</p>
+            </div>
+            """
+            mail.send(msg)
+            flash(f"L'utilisateur {user['firstname']} a été approuvé et le mail HTML a été envoyé.", "success")
+        except Exception as e:
+            print(f"Erreur envoi mail : {e}")
+            flash("Utilisateur approuvé, mais le mail n'est pas parti.", "warning")
+    return redirect("/admin/users")
+
+@app.context_processor
+def inject_pending_count():
+    if session.get('is_admin'):
+        db = get_db()
+        count = db.execute("SELECT COUNT(*) as total FROM users WHERE is_approved = 0").fetchone()
+        return {'pending_count': count['total']}
+    return {'pending_count': 0}
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
-        with get_db() as db:
-            user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-
-            if user and check_password_hash(user["password"], password):
-                session["user"] = user["username"]
-                # AJOUT DE L'AVATAR EN SESSION
-                session["user_avatar"] = user["avatar"] if user["avatar"] else "default.png"
-                return redirect("/")
-            else:
-                flash("Email ou mot de passe incorrect.", "danger")
+        # On récupère "email" car c'est le "name" dans ton HTML
+        email_saisi = request.form.get("email")
+        password_saisi = request.form.get("password")
+        db = get_db()
+        # On cherche par EMAIL et non par username
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email_saisi,)).fetchone()
+        if user and check_password_hash(user["password"], password_saisi):
+            # VERIFICATION DE L'APPROBATION
+            if user["is_approved"] == 0:
+                flash("Bienvenue ! Votre compte est en attente de validation.", "info")
+                return render_template("login.html")
+            # Si c'est bon, on ouvre la session
+            session.clear()
+            session["user"] = user["username"]  # On stocke le pseudo pour l'affichage
+            session["is_admin"] = user["is_admin"]
+            return redirect("/")
+        flash("Email ou mot de passe incorrect", "danger")
     return render_template("login.html")
 
 
@@ -107,29 +180,29 @@ def register():
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
         avatar = request.files.get("avatar")
-
         if password != confirm_password:
             flash("Les mots de passe ne correspondent pas.", "danger")
             return redirect("/register")
-
         filename = "default.png"
         if avatar:
             filename = secure_filename(f"{username}_{avatar.filename}")
             avatar.save(os.path.join(app.config["AVATAR_FOLDER"], filename))
-
         hashed_password = generate_password_hash(password)
-
         try:
             with get_db() as db:
-                db.execute("INSERT INTO users (firstname, lastname, email, username, password, avatar) VALUES (?, ?, ?, ?, ?, ?)",
-                           (firstname, lastname, email, username, hashed_password, filename))
+                # On force is_approved à 0 et is_admin à 0 pour les nouveaux inscrits
+                db.execute("""
+                    INSERT INTO users (firstname, lastname, email, username, password, avatar, is_approved, is_admin) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (firstname, lastname, email, username, hashed_password, filename, 0, 0))
                 db.commit()
-            flash("Compte créé ! Connectez-vous.", "success")
+            # Nouveau message personnalisé pour la tribu
+            flash("Bienvenue dans la tribu ! Ta demande d'accès est en attente de validation par l'administrateur.",
+                  "info")
             return redirect("/login")
         except sqlite3.IntegrityError:
             flash("Ce nom d'utilisateur ou cet e-mail est déjà utilisé.", "danger")
             return redirect("/register")
-
     return render_template("register.html")
 
 
@@ -344,7 +417,9 @@ def init_db():
                 lastname TEXT, 
                 username TEXT UNIQUE, 
                 password TEXT, 
-                avatar TEXT
+                avatar TEXT,
+                is_approved INTEGER DEFAULT 0,
+                is_admin INTEGER DEFAULT 0
             )
         """)
         db.execute("""

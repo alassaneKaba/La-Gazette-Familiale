@@ -11,6 +11,9 @@
             --primary: #3182ce;
             --text-main: #1a202c;
             --text-light: #718096;
+            --danger: #e53e3e;
+            --success: #38a169;
+            --info: #3182ce;
         }
 
         body {
@@ -20,25 +23,22 @@
             color: var(--text-main);
         }
 
-        /* Layout Principal en Grille */
+        /* Layout Principal */
         .main-container {
             max-width: 1100px;
             margin: 0 auto;
             padding: 20px 15px;
             display: grid;
-            grid-template-columns: 1fr; /* 1 colonne par défaut (Mobile) */
+            grid-template-columns: 1fr;
             gap: 25px;
             align-items: start;
         }
 
-        /* Mode PC / Tablette large */
         @media (min-width: 900px) {
             .main-container {
-                grid-template-columns: 280px 1fr; /* Barre latérale + Flux */
-            }
-            .sidebar {
-                position: sticky;
-                top: 85px; /* Reste visible au scroll */
+                grid-template-columns: 280px 650px;
+                justify-content: center;
+                gap: 30px;
             }
         }
 
@@ -70,21 +70,46 @@
             text-decoration: none;
             color: #4a5568;
             transition: 0.2s;
+            font-weight: 500;
         }
 
         .nav-item:hover { background: #f7fafc; color: var(--primary); }
 
-        @media (max-width: 600px) {
-            .nav-text { display: none; }
+        /* Badge notification admin */
+        .admin-badge {
+            background: var(--danger);
+            color: white;
+            font-size: 0.75em;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 5px;
+            min-width: 10px;
+            text-align: center;
         }
 
-        @media (min-width: 900px) {
-            .main-container {
-                    display: grid;
-                    grid-template-columns: 280px 650px; /* On fixe la largeur du flux à 650px */
-                    justify-content: center; /* On centre le tout sur l'écran */
-                    gap: 30px;
-                }
+        /* Styles pour les messages Flash */
+        .flash-messages {
+            grid-column: 1 / -1; /* Prend toute la largeur sur la grille */
+            margin-bottom: 10px;
+        }
+
+        .flash-msg {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 0.95em;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            text-align: center;
+        }
+
+        .flash-success { background: #c6f6d5; color: #22543d; border-left: 5px solid var(--success); }
+        .flash-danger { background: #fed7d7; color: #822727; border-left: 5px solid var(--danger); }
+        .flash-info { background: #ebf8ff; color: #2a4365; border-left: 5px solid var(--info); }
+
+        @media (max-width: 600px) {
+            .nav-text { display: none; }
         }
     </style>
 </head>
@@ -104,11 +129,22 @@
 
             <div class="nav-right" style="display: flex; align-items: center; gap: 5px;">
                 <a href="/" class="nav-item">🏠 <span class="nav-text" style="margin-left:5px;">Accueil</span></a>
+
                 {% if session.get("user") %}
+                    {% if session.get('is_admin') %}
+                    <a href="/admin/users" class="nav-item" style="background: #ebf8ff; color: var(--primary); border: 1px solid #bee3f8; margin-right: 5px;">
+                        🛡️ <span class="nav-text" style="margin-left:5px;">Admin</span>
+                        {% if pending_count and pending_count > 0 %}
+                            <span class="admin-badge">{{ pending_count }}</span>
+                        {% endif %}
+                    </a>
+                    {% endif %}
+
                     <a href="{{ url_for('profile', username=session['user']) }}" class="nav-item">👤 <span class="nav-text" style="margin-left:5px;">Profil</span></a>
                     <a href="/notifications" class="nav-item">🔔</a>
                     <a href="/settings" class="nav-item">⚙️</a>
-                    <a href="/logout" style="color: #e53e3e; text-decoration: none; font-weight: 700; font-size: 0.9em; margin-left:10px;">Déconnecter</a>
+                    <a href="/logout" style="color: var(--danger); text-decoration: none; font-weight: 700; font-size: 0.9em; margin-left:10px; padding: 8px;">Déconnecter</a>
+
                 {% else %}
                     <a href="/login" class="nav-item">Connexion</a>
                     <a href="/register" style="background: var(--primary); color: white; padding: 8px 16px; border-radius: 10px; text-decoration: none; font-weight: 700; margin-left: 10px;">Rejoindre</a>
@@ -118,6 +154,18 @@
     </nav>
 
     <div class="main-container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="flash-msg flash-{{ category }}">
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+        </div>
+
         {% block content %}{% endblock %}
     </div>
 

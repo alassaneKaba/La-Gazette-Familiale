@@ -3,6 +3,7 @@ import sqlite3, os
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+from datetime import datetime, timezone
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -153,6 +154,27 @@ def post():
                            (post_id, filename, file_type))
     return redirect("/")
 
+
+@app.template_filter('relative_time')
+def relative_time(date_str):
+    if not date_str:
+        return "Date inconnue"
+    # SQLite donne la date en UTC. On la lit sans fuseau (naïve)
+    past = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+    # On récupère le "Maintenant" en UTC également
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    diff = now - past
+    if diff.days == 0:
+        if diff.seconds < 60:
+            return "À l'instant"
+        if diff.seconds < 3600:
+            return f"Il y a {diff.seconds // 60} min"
+        return f"Il y a {diff.seconds // 3600} h"
+    if diff.days == 1:
+        return "Hier"
+    if diff.days < 7:
+        return f"Il y a {diff.days} jours"
+    return past.strftime('%d/%m/%Y')
 
 @app.route("/react/<int:post_id>/<reaction_type>", methods=["POST"])
 def react(post_id, reaction_type):
@@ -312,8 +334,16 @@ def init_db():
                 avatar TEXT
             )
         """)
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, content TEXT, likes INTEGER DEFAULT 0, image TEXT)")
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                username TEXT, 
+                content TEXT, 
+                likes INTEGER DEFAULT 0, 
+                image TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         db.execute("""
                     CREATE TABLE IF NOT EXISTS post_medias (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -53,7 +53,9 @@
                      style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
                 <div>
                     <strong style="display: block; color: #1a202c;">{{ post['username'] }}</strong>
-                    <span style="font-size: 0.75em; color: #718096;">Dernière minute</span>
+                    <span class="live-date" data-time="{{ post['created_at'] }}" style="font-size: 0.75em; color: #718096;">
+                        {{ post['created_at'] | relative_time }}
+                    </span>
                 </div>
             </div>
 
@@ -135,149 +137,193 @@
 </main>
 
 <script>
-// --- INTERACTIONS DE BASE ---
-function toggleComments(postId) {
-    const section = document.getElementById('comment-section-' + postId);
-    section.style.display = (section.style.display === "none") ? "block" : "none";
-}
-
-function react(postId, type) {
-    fetch("/react/" + postId + "/" + type, { method: "POST", headers: { 'X-Requested-With': 'XMLHttpRequest' }})
-    .then(res => {
-        if (res.status === 403 || res.status === 401) { window.location.href = "/login"; return; }
-        return res.json();
-    })
-    .then(data => { if (data) document.getElementById("thumbs-" + postId).innerText = data.thumb; });
-}
-
-function addComment(event, postId) {
-    event.preventDefault();
-    let input = document.getElementById("comment-input-" + postId);
-    if (!input.value.trim()) return;
-
-    fetch("/comment/" + postId, {
-        method: "POST",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"},
-        body: "content=" + encodeURIComponent(input.value)
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data && data.username) {
-            let div = document.getElementById("comments-" + postId);
-            let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
-            div.innerHTML += `
-                <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
-                    <img src="/static/avatars/${userAvatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #ddd;">
-                    <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                        <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
-                        <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
-                    </div>
-                </div>`;
-            document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
-            input.value = "";
-        }
-    });
-}
-
-// --- GESTION DE L'UPLOAD ET PREVIEW ---
-let selectedFiles = [];
-
-function previewFiles() {
-    const fileInput = document.getElementById('image-input');
-    selectedFiles = [...selectedFiles, ...Array.from(fileInput.files)];
-    renderPreview();
-}
-
-function renderPreview() {
-    const previewGrid = document.getElementById('preview-grid');
-    const container = document.getElementById('preview-container');
-    previewGrid.innerHTML = "";
-
-    if (selectedFiles.length === 0) {
-        container.style.display = "none";
-        return;
+    // --- INTERACTIONS DE BASE ---
+    function toggleComments(postId) {
+        const section = document.getElementById('comment-section-' + postId);
+        section.style.display = (section.style.display === "none") ? "block" : "none";
     }
 
-    container.style.display = "block";
-    selectedFiles.forEach((file, index) => {
-        const reader = new FileReader();
-        const div = document.createElement('div');
-        div.style.cssText = "position: relative; width: 100px; height: 100px;";
-        reader.onload = (e) => {
-            let mediaHtml = file.type.startsWith('video/')
-                ? `<video src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"></video>`
-                : `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">`;
-            div.innerHTML = `${mediaHtml}<button type="button" onclick="removeSingleFile(${index})" style="position:absolute; top:-5px; right:-5px; background:#e53e3e; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center;">✕</button>`;
-        };
-        reader.readAsDataURL(file);
-        previewGrid.appendChild(div);
-    });
+    function react(postId, type) {
+        fetch("/react/" + postId + "/" + type, { method: "POST", headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+        .then(res => {
+            if (res.status === 403 || res.status === 401) { window.location.href = "/login"; return; }
+            return res.json();
+        })
+        .then(data => { if (data) document.getElementById("thumbs-" + postId).innerText = data.thumb; });
+    }
 
-    const dt = new DataTransfer();
-    selectedFiles.forEach(file => dt.items.add(file));
-    document.getElementById('image-input').files = dt.files;
-}
+    function addComment(event, postId) {
+        event.preventDefault();
+        let input = document.getElementById("comment-input-" + postId);
+        if (!input.value.trim()) return;
 
-function removeSingleFile(index) {
-    selectedFiles.splice(index, 1);
-    renderPreview();
-}
-
-function removeFiles() {
-    selectedFiles = [];
-    renderPreview();
-}
-
-// --- LE SLIDER (UNE SEULE VERSION) ---
-function moveSlide(postId, direction) {
-    const container = document.getElementById(`carousel-${postId}`);
-    if (!container) return;
-
-    const items = container.querySelectorAll('.carousel-item');
-    // On cherche l'élément qui possède la classe 'active'
-    let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
-
-    if (activeIndex === -1) activeIndex = 0;
-
-    // Masquer l'ancien
-    items[activeIndex].classList.remove('active');
-    items[activeIndex].style.display = 'none';
-
-    // Calculer le nouveau
-    activeIndex += direction;
-    if (activeIndex >= items.length) activeIndex = 0;
-    if (activeIndex < 0) activeIndex = items.length - 1;
-
-    // Afficher le nouveau
-    items[activeIndex].classList.add('active');
-    items[activeIndex].style.display = 'block';
-
-    // Maj compteur
-    const counter = container.querySelector('.carousel-counter .current');
-    if (counter) counter.innerText = activeIndex + 1;
-}
-
-// --- CLAVIER (UNE SEULE VERSION) ---
-document.addEventListener('keydown', (e) => {
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        const carousels = document.querySelectorAll('.carousel-container');
-        let closestId = null;
-        let minDistance = Infinity;
-
-        carousels.forEach(c => {
-            const rect = c.getBoundingClientRect();
-            const distance = Math.abs(rect.top);
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestId = c.id.replace('carousel-', '');
+        fetch("/comment/" + postId, {
+            method: "POST",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: "content=" + encodeURIComponent(input.value)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.username) {
+                let div = document.getElementById("comments-" + postId);
+                let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
+                div.innerHTML += `
+                    <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
+                        <img src="/static/avatars/${userAvatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #ddd;">
+                        <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
+                            <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
+                        </div>
+                    </div>`;
+                document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
+                input.value = "";
             }
         });
-
-        if (closestId) {
-            if (e.key === "ArrowLeft") moveSlide(closestId, -1);
-            else if (e.key === "ArrowRight") moveSlide(closestId, 1);
-        }
     }
-});
+
+    // --- GESTION DE L'UPLOAD ET PREVIEW ---
+    let selectedFiles = [];
+
+    function previewFiles() {
+        const fileInput = document.getElementById('image-input');
+        selectedFiles = [...selectedFiles, ...Array.from(fileInput.files)];
+        renderPreview();
+    }
+
+    function renderPreview() {
+        const previewGrid = document.getElementById('preview-grid');
+        const container = document.getElementById('preview-container');
+        previewGrid.innerHTML = "";
+
+        if (selectedFiles.length === 0) {
+            container.style.display = "none";
+            return;
+        }
+
+        container.style.display = "block";
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            const div = document.createElement('div');
+            div.style.cssText = "position: relative; width: 100px; height: 100px;";
+            reader.onload = (e) => {
+                let mediaHtml = file.type.startsWith('video/')
+                    ? `<video src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"></video>`
+                    : `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">`;
+                div.innerHTML = `${mediaHtml}<button type="button" onclick="removeSingleFile(${index})" style="position:absolute; top:-5px; right:-5px; background:#e53e3e; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center;">✕</button>`;
+            };
+            reader.readAsDataURL(file);
+            previewGrid.appendChild(div);
+        });
+
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
+        document.getElementById('image-input').files = dt.files;
+    }
+
+    function removeSingleFile(index) {
+        selectedFiles.splice(index, 1);
+        renderPreview();
+    }
+
+    function removeFiles() {
+        selectedFiles = [];
+        renderPreview();
+    }
+
+    // --- LE SLIDER (UNE SEULE VERSION) ---
+    function moveSlide(postId, direction) {
+        const container = document.getElementById(`carousel-${postId}`);
+        if (!container) return;
+
+        const items = container.querySelectorAll('.carousel-item');
+        // On cherche l'élément qui possède la classe 'active'
+        let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
+
+        if (activeIndex === -1) activeIndex = 0;
+
+        // Masquer l'ancien
+        items[activeIndex].classList.remove('active');
+        items[activeIndex].style.display = 'none';
+
+        // Calculer le nouveau
+        activeIndex += direction;
+        if (activeIndex >= items.length) activeIndex = 0;
+        if (activeIndex < 0) activeIndex = items.length - 1;
+
+        // Afficher le nouveau
+        items[activeIndex].classList.add('active');
+        items[activeIndex].style.display = 'block';
+
+        // Maj compteur
+        const counter = container.querySelector('.carousel-counter .current');
+        if (counter) counter.innerText = activeIndex + 1;
+    }
+
+    // --- CLAVIER (UNE SEULE VERSION) ---
+    document.addEventListener('keydown', (e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            const carousels = document.querySelectorAll('.carousel-container');
+            let closestId = null;
+            let minDistance = Infinity;
+
+            carousels.forEach(c => {
+                const rect = c.getBoundingClientRect();
+                const distance = Math.abs(rect.top);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestId = c.id.replace('carousel-', '');
+                }
+            });
+
+            if (closestId) {
+                if (e.key === "ArrowLeft") moveSlide(closestId, -1);
+                else if (e.key === "ArrowRight") moveSlide(closestId, 1);
+            }
+        }
+    });
+
+    function updateLiveDates() {
+        const dateElements = document.querySelectorAll('.live-date');
+
+        dateElements.forEach(el => {
+            const timestamp = el.getAttribute('data-time');
+            if (!timestamp) return;
+
+            // On ajoute "Z" à la fin pour dire à JS : "C'est du UTC !"
+            // JS convertira alors automatiquement en heure locale pour la comparaison
+            const postDate = new Date(timestamp.replace(' ', 'T') + 'Z');
+            const now = new Date();
+
+            const diffInSeconds = Math.floor((now - postDate) / 1000);
+
+            // Debug optionnel : console.log(diffInSeconds);
+            // Si diffInSeconds est proche de 0, c'est gagné !
+
+            let newText = "";
+            if (diffInSeconds < 0) {
+                newText = "À l'instant"; // Sécurité si l'horloge serveur/client dévie
+            } else if (diffInSeconds < 60) {
+                newText = "À l'instant";
+            } else if (diffInSeconds < 3600) {
+                const mins = Math.floor(diffInSeconds / 60);
+                newText = `Il y a ${mins} min`;
+            } else if (diffInSeconds < 86400) {
+                const hours = Math.floor(diffInSeconds / 3600);
+                newText = `Il y a ${hours} h`;
+            } else {
+                return;
+            }
+
+            if (el.innerText !== newText) {
+                el.innerText = newText;
+            }
+        });
+    }
+
+    // Lancer la mise à jour toutes les 60 secondes
+    setInterval(updateLiveDates, 60000);
+
+    // Lancer aussi une fois au chargement pour synchroniser
+    updateLiveDates();
 </script>
 {% endblock %}

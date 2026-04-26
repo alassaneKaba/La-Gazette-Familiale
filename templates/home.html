@@ -34,8 +34,8 @@
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f7fafc; padding-top: 15px;">
-                <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9em; background: #edf2f7; padding: 8px 15px; border-radius: 20px; transition: 0.2s;" class="upload-btn">
-                    <span>📸 Ajouter photos / vidéos (plusieurs possibles)</span>
+                <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9em; background: #edf2f7; padding: 8px 15px; border-radius: 20px;">
+                    <span>📸 Ajouter photos / vidéos</span>
                     <input type="file" id="image-input" name="images" accept="image/*,video/*" multiple style="display: none;" onchange="previewFiles()">
                 </label>
                 <button type="submit" style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;">Publier</button>
@@ -47,36 +47,56 @@
     {% for post in posts %}
     <div class="post-card" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
 
-        <div style="padding: 15px 20px 5px 20px; display: flex; justify-content: space-between; align-items: center;">
-            <div class="carousel-container" id="carousel-{{ post.id }}">
-                <div class="carousel-items">
-                    {% for media in post.medias %}
-                        <div class="carousel-item {% if loop.first %}active{% endif %}">
-                            {% if media.file_type == 'video' %}
-                                <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls></video>
-                            {% else %}
-                                <img src="{{ url_for('static', filename='uploads/' + media.filename) }}">
-                            {% endif %}
-                        </div>
-                    {% endfor %}
+        <div style="padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}"
+                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                <div>
+                    <strong style="display: block; color: #1a202c;">{{ post['username'] }}</strong>
+                    <span style="font-size: 0.75em; color: #718096;">Dernière minute</span>
                 </div>
-
-                {% if post.medias|length > 1 %}
-                    <button class="prev" onclick="moveSlide('{{ post.id }}', -1)">&#10094;</button>
-                    <button class="next" onclick="moveSlide('{{ post.id }}', 1)">&#10095;</button>
-                {% endif %}
             </div>
 
             {% if session.get("user") == post['username'] %}
-            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer ce souvenir ?');">
-                <button type="submit" style="background:none; border:none; color: #cbd5e0; cursor:pointer;">🗑️</button>
+            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer ce souvenir ?');" style="margin:0;">
+                <button type="submit" style="background:#f7fafc; border:none; color: #a0aec0; cursor:pointer; padding: 8px; border-radius: 8px;">
+                    <span style="font-size: 1.1em;">🗑️</span>
+                </button>
             </form>
             {% endif %}
         </div>
 
-        <div style="padding: 10px 20px; white-space: pre-wrap; color: #2d3748;">{{ post['content'] }}</div>
+        <div style="padding: 0 20px 10px 20px; white-space: pre-wrap; color: #2d3748;">{{ post['content'] }}</div>
 
-        <div style="display: flex; justify-content: space-between; padding: 10px 20px; font-size: 0.9em; color: #65676b;">
+        {% if post.medias %}
+        <div class="carousel-container" id="carousel-{{ post.id }}" style="position: relative; background: #000; display: flex; align-items: center; justify-content: center; min-height: 300px;">
+
+            {% if post.medias|length > 1 %}
+            <div class="carousel-counter" style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; z-index: 10; font-weight: bold;">
+                <span class="current">1</span> / {{ post.medias|length }}
+            </div>
+            {% endif %}
+
+            <div class="carousel-items" style="width: 100%;">
+                {% for media in post.medias %}
+                    <div class="carousel-item {% if loop.first %}active{% endif %}" style="display: {% if loop.first %}block{% else %}none{% endif %}; text-align: center;">
+                        {% if media.file_type == 'video' %}
+                            <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="max-width: 100%; max-height: 500px; display: block; margin: 0 auto;"></video>
+                        {% else %}
+                            <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" style="max-width: 100%; max-height: 500px; object-fit: contain; display: block; margin: 0 auto;" onclick="window.open(this.src)">
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if post.medias|length > 1 %}
+                <button class="prev" onclick="moveSlide('{{ post.id }}', -1)" style="position: absolute; left: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer;">&#10094;</button>
+                <button class="next" onclick="moveSlide('{{ post.id }}', 1)" style="position: absolute; right: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer;">&#10095;</button>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div style="display: flex; justify-content: space-between; padding: 12px 20px; font-size: 0.9em; color: #65676b;">
             <div>👍 <span id="thumbs-{{ post['id'] }}">{{ post['thumbs'] }}</span></div>
             <div style="cursor: pointer;" onclick="toggleComments({{ post['id'] }})">
                 <span id="comment-count-{{ post['id'] }}">{{ comments|selectattr('post_id', 'equalto', post['id'])|list|length }}</span> commentaires
@@ -93,7 +113,7 @@
                 {% for c in comments %}{% if c['post_id'] == post['id'] %}
                     <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
                         <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
-                             style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #ddd;">
+                             style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                         <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                             <strong style="font-size: 0.85em; display: block; color: #1c1e21;">{{ c['username'] }}</strong>
                             <span style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
@@ -101,7 +121,6 @@
                     </div>
                 {% endif %}{% endfor %}
             </div>
-
             {% if session.get("user") %}
             <form onsubmit="addComment(event, {{ post['id'] }})" style="display: flex; gap: 8px; align-items: center; margin-top: 15px;">
                 <input id="comment-input-{{ post['id'] }}" placeholder="Écrire un commentaire..."
@@ -112,9 +131,11 @@
         </div>
     </div>
     {% endfor %}
+
 </main>
 
 <script>
+// --- INTERACTIONS DE BASE ---
 function toggleComments(postId) {
     const section = document.getElementById('comment-section-' + postId);
     section.style.display = (section.style.display === "none") ? "block" : "none";
@@ -158,96 +179,89 @@ function addComment(event, postId) {
     });
 }
 
+// --- GESTION DE L'UPLOAD ET PREVIEW ---
+let selectedFiles = [];
+
 function previewFiles() {
+    const fileInput = document.getElementById('image-input');
+    selectedFiles = [...selectedFiles, ...Array.from(fileInput.files)];
+    renderPreview();
+}
+
+function renderPreview() {
     const previewGrid = document.getElementById('preview-grid');
     const container = document.getElementById('preview-container');
-    const files = document.getElementById('image-input').files;
-    previewGrid.innerHTML = ""; // On vide l'aperçu précédent
-    if (files.length > 0) {
-        container.style.display = "block";
-        Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            const div = document.createElement('div');
-            div.style.position = "relative";
-            reader.onload = (e) => {
-                if (file.type.startsWith('video/')) {
-                    div.innerHTML = `<video src="${e.target.result}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;"></video>`;
-                } else {
-                    div.innerHTML = `<img src="${e.target.result}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">`;
-                }
-            };
-            reader.readAsDataURL(file);
-            previewGrid.appendChild(div);
-        });
-    } else {
+    previewGrid.innerHTML = "";
+
+    if (selectedFiles.length === 0) {
         container.style.display = "none";
+        return;
     }
+
+    container.style.display = "block";
+    selectedFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        const div = document.createElement('div');
+        div.style.cssText = "position: relative; width: 100px; height: 100px;";
+        reader.onload = (e) => {
+            let mediaHtml = file.type.startsWith('video/')
+                ? `<video src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"></video>`
+                : `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">`;
+            div.innerHTML = `${mediaHtml}<button type="button" onclick="removeSingleFile(${index})" style="position:absolute; top:-5px; right:-5px; background:#e53e3e; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center;">✕</button>`;
+        };
+        reader.readAsDataURL(file);
+        previewGrid.appendChild(div);
+    });
+
+    const dt = new DataTransfer();
+    selectedFiles.forEach(file => dt.items.add(file));
+    document.getElementById('image-input').files = dt.files;
+}
+
+function removeSingleFile(index) {
+    selectedFiles.splice(index, 1);
+    renderPreview();
 }
 
 function removeFiles() {
-    document.getElementById('image-input').value = "";
-    document.getElementById('preview-grid').innerHTML = "";
-    document.getElementById('preview-container').style.display = "none";
+    selectedFiles = [];
+    renderPreview();
 }
 
-    function moveSlide(postId, direction) {
-    const container = document.getElementById(`carousel-${postId}`);
-    const items = container.querySelectorAll('.carousel-item');
-    let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
-
-    items[activeIndex].classList.remove('active');
-
-    activeIndex += direction;
-    if (activeIndex >= items.length) activeIndex = 0;
-    if (activeIndex < 0) activeIndex = items.length - 1;
-
-    items[activeIndex].classList.add('active');
-}
-
-// Gestion des touches du clavier
-document.addEventListener('keydown', (e) => {
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        // On cherche le post qui est actuellement le plus au centre de l'écran
-        const carousels = document.querySelectorAll('.carousel-container');
-        let closest = null;
-        let minDistance = Infinity;
-
-        carousels.forEach(c => {
-            const rect = c.getBoundingClientRect();
-            const distance = Math.abs(rect.top);
-            if (distance < minDistance) {
-                minDistance = distance;
-                closest = c.id.split('-')[1];
-            }
-        });
-
-        if (closest) {
-            if (e.key === "ArrowLeft") moveSlide(closest, -1);
-            else moveSlide(closest, 1);
-        }
-    }
-});
-
+// --- LE SLIDER (UNE SEULE VERSION) ---
 function moveSlide(postId, direction) {
     const container = document.getElementById(`carousel-${postId}`);
+    if (!container) return;
+
     const items = container.querySelectorAll('.carousel-item');
+    // On cherche l'élément qui possède la classe 'active'
     let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
 
-    items[activeIndex].classList.remove('active');
+    if (activeIndex === -1) activeIndex = 0;
 
+    // Masquer l'ancien
+    items[activeIndex].classList.remove('active');
+    items[activeIndex].style.display = 'none';
+
+    // Calculer le nouveau
     activeIndex += direction;
     if (activeIndex >= items.length) activeIndex = 0;
     if (activeIndex < 0) activeIndex = items.length - 1;
 
+    // Afficher le nouveau
     items[activeIndex].classList.add('active');
+    items[activeIndex].style.display = 'block';
+
+    // Maj compteur
+    const counter = container.querySelector('.carousel-counter .current');
+    if (counter) counter.innerText = activeIndex + 1;
 }
 
-// Gestion des touches du clavier
+// --- CLAVIER (UNE SEULE VERSION) ---
 document.addEventListener('keydown', (e) => {
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        // On cherche le post qui est actuellement le plus au centre de l'écran
         const carousels = document.querySelectorAll('.carousel-container');
-        let closest = null;
+        let closestId = null;
         let minDistance = Infinity;
 
         carousels.forEach(c => {
@@ -255,13 +269,13 @@ document.addEventListener('keydown', (e) => {
             const distance = Math.abs(rect.top);
             if (distance < minDistance) {
                 minDistance = distance;
-                closest = c.id.split('-')[1];
+                closestId = c.id.replace('carousel-', '');
             }
         });
 
-        if (closest) {
-            if (e.key === "ArrowLeft") moveSlide(closest, -1);
-            else moveSlide(closest, 1);
+        if (closestId) {
+            if (e.key === "ArrowLeft") moveSlide(closestId, -1);
+            else if (e.key === "ArrowRight") moveSlide(closestId, 1);
         }
     }
 });

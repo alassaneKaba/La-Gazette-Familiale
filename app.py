@@ -224,17 +224,30 @@ def react(post_id, reaction_type):
 
 
 @app.route("/comment/<int:post_id>", methods=["POST"])
-def comment(post_id):
-    if not session.get("user"):
-        flash("Veuillez vous connecter pour commenter !", "info")
-        return jsonify({"redirect": "/login"}), 403
-
-    content = request.form["content"]
-    username = session["user"]
-    with get_db() as db:
-        db.execute("INSERT INTO comments (post_id, username, content) VALUES (?, ?, ?)", (post_id, username, content))
-        db.commit()
-    return jsonify({"username": username, "content": content})
+def add_comment(post_id):
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    content = request.form.get("content")
+    if not content:
+        return jsonify({"error": "Empty content"}), 400
+    db = get_db()
+    # On insère le commentaire (created_at se remplira tout seul via CURRENT_TIMESTAMP)
+    cursor = db.execute(
+        "INSERT INTO comments (post_id, username, content) VALUES (?, ?, ?)",
+        (post_id, session["user"], content)
+    )
+    db.commit()
+    # On récupère la date qui vient d'être générée par SQLite
+    comment_id = cursor.lastrowid
+    comment_data = db.execute(
+        "SELECT created_at FROM comments WHERE id = ?", (comment_id,)
+    ).fetchone()
+    # On renvoie le username, le contenu ET la date au format texte
+    return jsonify({
+        "username": session["user"],
+        "content": content,
+        "created_at": comment_data["created_at"]
+    })
 
 
 @app.route("/user/<username>")
@@ -353,8 +366,16 @@ def init_db():
                         FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE
                     )
                 """)
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER, username TEXT, content TEXT)")
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id INTEGER,
+                username TEXT,
+                content TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Ajout de cette ligne
+                FOREIGN KEY (post_id) REFERENCES posts (id)
+            )
+        """)
         db.execute(
             "CREATE TABLE IF NOT EXISTS reactions (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, post_id INTEGER, type TEXT, UNIQUE(username, post_id))")
         db.execute(

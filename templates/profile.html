@@ -1,32 +1,139 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container">
-    <div style="display:flex; align-items:center; gap:20px; background:white; padding:20px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
-        <img class="avatar" style="width:80px !important; height:80px !important;"
-             src="{{ url_for('static', filename='avatars/' + (posts[0]['user_avatar'] if posts else 'default.png')) }}">
-        <h2>Profil de {{ username }}</h2>
-    </div>
+<div class="main-container">
+    <div class="post-card" style="padding: 0; overflow: hidden; border-top: none; grid-column: 1 / -1;">
+        <div style="height: 180px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); position: relative;">
+            <label for="cover-upload" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.4); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.3);">
+                📷 Modifier la couverture
+            </label>
+            <input type="file" id="cover-upload" style="display: none;">
+        </div>
 
-    <h3 style="margin-top:25px;">Publications</h3>
+        <div style="padding: 0 20px 30px 20px; margin-top: -60px; text-align: center;">
+            <div style="display: inline-block; position: relative;">
+                {% if user.avatar %}
+                    <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}"
+                         style="width: 120px; height: 120px; border-radius: 50%; border: 5px solid white; object-fit: cover; box-shadow: 0 4px 15px rgba(0,0,0,0.15); background: white;">
+                {% else %}
+                    <div style="width: 120px; height: 120px; border-radius: 50%; border: 5px solid white; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">👤</div>
+                {% endif %}
+            </div>
 
-    {% if not posts %}
-        <p>Cet utilisateur n'a pas encore posté.</p>
-    {% endif %}
+            <h1 style="margin: 15px 0 5px 0; color: #2d3748; font-size: 2em; font-weight: 800;">{{ user.firstname }} {{ user.lastname }}</h1>
+            <p style="color: #718096; margin: 0; font-size: 1.1em; font-weight: 500;">@{{ user.username }}</p>
 
-    {% for post in posts %}
-        <div class="post">
-            <div class="content">{{ post['content'] }}</div>
-
-            {% if post['image'] %}
-                <img class="post-img" src="{{ url_for('static', filename='uploads/' + post['image']) }}" style="width:100%; border-radius:8px; margin-top:10px;">
-            {% endif %}
-
-            <div class="actions" style="color: #65676b; font-size: 14px; border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px;">
-                👍 {{ post['thumbs'] }} | ❤️ {{ post['hearts'] }}
+            <div style="display: flex; justify-content: center; gap: 40px; margin-top: 25px; padding-top: 25px; border-top: 1px solid #edf2f7;">
+                <div style="text-align: center;">
+                    <span style="display: block; font-weight: 800; font-size: 1.5em; color: #3182ce;">{{ posts_count }}</span>
+                    <span style="color: #a0aec0; font-size: 0.8em; text-transform: uppercase; font-weight: bold;">Publications</span>
+                </div>
+                <div style="text-align: center;">
+                    <span style="display: block; font-weight: 800; font-size: 1.5em; color: #3182ce;">{{ likes_received }}</span>
+                    <span style="color: #a0aec0; font-size: 0.8em; text-transform: uppercase; font-weight: bold;">Réactions</span>
+                </div>
             </div>
         </div>
-    {% endfor %}
+    </div>
+
+    <div style="grid-column: 1 / -1;">
+        <div style="display: flex; justify-content: center; gap: 30px; margin: 20px 0; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;">
+            <button onclick="switchView('feed')" id="btn-feed" style="background: none; border: none; font-weight: bold; color: #3182ce; cursor: pointer; font-size: 1.1em;">📑 Flux</button>
+            <button onclick="switchView('grid')" id="btn-grid" style="background: none; border: none; font-weight: bold; color: #a0aec0; cursor: pointer; font-size: 1.1em;">🔳 Galerie</button>
+        </div>
+
+        <div id="view-feed">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
+                {% for post in posts %}
+                    <div class="post-card" style="max-width: 600px; width: 100%;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <img src="{{ url_for('static', filename='avatars/' + post.user_avatar) if post.user_avatar else url_for('static', filename='default_avatar.png') }}" class="avatar">
+                            <span class="username">{{ post.username }}</span>
+                        </div>
+                        <p class="content">{{ post.content }}</p>
+
+                        {% if post.medias %}
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                                {% for media in post.medias %}
+                                    <div style="width: 100%; background: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #edf2f7;">
+                                        {% if media.file_type == 'video' %}
+                                            <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="width: 100%; max-height: 500px; display: block;"></video>
+                                        {% else %}
+                                            <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" style="width: 100%; max-height: 500px; object-fit: contain; display: block;">
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div style="display: flex; border-top: 1px solid #eee; margin-top: 15px; padding-top: 10px; justify-content: space-around;">
+                            <button class="action-btn" onclick="react('{{ post.id }}', 'thumb')">👍 {{ post.thumbs or 0 }}</button>
+                            <button class="action-btn" onclick="react('{{ post.id }}', 'heart')"><span style="color: #e53e3e;">❤️</span> {{ post.hearts or 0 }}</button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div id="view-grid" style="display: none;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; background: white; padding: 5px; border-radius: 10px;">
+        {% for post in posts %}
+            {% set post_loop_index = loop.index0 %} {# On mémorise l'index du post ici #}
+            {% if post.medias %}
+                {% for media in post.medias %}
+                    <div style="aspect-ratio: 1 / 1; overflow: hidden; border-radius: 4px; cursor: pointer; position: relative;"
+                         onclick="scrollToPost('{{ post_loop_index }}')">
+                        {% if media.file_type == 'video' %}
+                            <video src="{{ url_for('static', filename='uploads/' + media.filename) }}"
+                                   style="width: 100%; height: 100%; object-fit: cover;"></video>
+                            <div style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
+                                🎥
+                            </div>
+                        {% else %}
+                            <img src="{{ url_for('static', filename='uploads/' + media.filename) }}"
+                                 style="width: 100%; height: 100%; object-fit: cover;">
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+         </div>
+        </div>
+    </div>
 </div>
 
+<script>
+function switchView(view) {
+    const feed = document.getElementById('view-feed');
+    const grid = document.getElementById('view-grid');
+    const btnFeed = document.getElementById('btn-feed');
+    const btnGrid = document.getElementById('btn-grid');
+    if (view === 'feed') {
+        feed.style.display = 'block'; grid.style.display = 'none';
+        btnFeed.style.color = '#3182ce'; btnGrid.style.color = '#a0aec0';
+    } else {
+        feed.style.display = 'none'; grid.style.display = 'block';
+        btnGrid.style.color = '#3182ce'; btnFeed.style.color = '#a0aec0';
+    }
+}
+
+function scrollToPost(index) {
+    switchView('feed');
+    setTimeout(() => {
+        const posts = document.querySelectorAll('#view-feed .post-card');
+        if(posts[index]) {
+            posts[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 100);
+}
+
+// Fonction pour les likes si tu n'as pas déjà le script
+function react(postId, type) {
+    fetch('/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, type: type })
+    }).then(() => location.reload());
+}
+</script>
 {% endblock %}

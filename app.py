@@ -324,9 +324,14 @@ def add_comment(post_id):
 
 
 @app.route("/user/<username>")
+@login_required
 def profile(username):
     with get_db() as db:
-        posts = db.execute("""
+        user_info = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_info:
+            flash("Utilisateur introuvable", "danger")
+            return redirect(url_for('home'))
+        posts_query = db.execute("""
             SELECT posts.*, users.avatar AS user_avatar,
                 (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='thumb') as thumbs,
                 (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='heart') as hearts
@@ -335,7 +340,21 @@ def profile(username):
             WHERE posts.username=?
             ORDER BY posts.id DESC
         """, (username,)).fetchall()
-    return render_template("profile.html", posts=posts, username=username)
+        posts = [dict(row) for row in posts_query]
+        for post in posts:
+            # On s'assure de récupérer les médias
+            medias = db.execute("SELECT filename, file_type FROM post_medias WHERE post_id = ?",
+                                (post['id'],)).fetchall()
+            post['medias'] = [dict(m) for m in medias]  # On force la conversion en liste de dicts
+        posts_count = len(posts)
+        total_reactions = sum((p['thumbs'] or 0) + (p['hearts'] or 0) for p in posts)
+    return render_template(
+        "profile.html",
+        posts=posts,
+        user=user_info,
+        posts_count=posts_count,
+        likes_received=total_reactions
+    )
 
 
 @app.route("/settings", methods=["GET", "POST"])

@@ -1,139 +1,246 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+    /* --- VOS STYLES EXISTANTS (CONSERVÉS) --- */
+    .nav-container { display: flex; justify-content: center; margin: 20px 0; grid-column: 1 / -1; }
+    .modern-nav { display: flex; background: #e2e8f0; padding: 4px; border-radius: 12px; width: fit-content; }
+    .nav-item-btn { padding: 8px 20px; border: none; background: none; color: #718096; font-weight: 600; cursor: pointer; border-radius: 8px; transition: 0.2s; }
+    .nav-item-btn.active { color: #3182ce; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+    .profile-header-card {
+        background: white;
+        border-radius: 20px; /* Un peu plus arrondi */
+        overflow: hidden;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border: 1px solid #edf2f7;
+        grid-column: 1 / -1;
+    }
+
+    /* --- COUVERTURE (VOTRE VERSION PRÉFÉRÉE) --- */
+    .cover-wrapper { height: 300px; width: 100%; background-color: #000; position: relative; overflow: hidden; }
+    .cover-bg-blur {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background-image: url('{{ url_for("static", filename="avatars/" + user.cover) if user.cover else "" }}');
+        background-size: cover; background-position: center;
+        filter: blur(35px) brightness(0.7); transform: scale(1.2); z-index: 1;
+    }
+    .cover-main-img {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background-image: url('{{ url_for("static", filename="avatars/" + user.cover) if user.cover else "" }}');
+        background-size: contain; background-position: center; background-repeat: no-repeat;
+        z-index: 2; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));
+    }
+
+    .avatar-container { width: 150px; height: 150px; margin: -75px auto 10px auto; position: relative; z-index: 5; }
+    .profile-avatar-img { width: 100%; height: 100%; border-radius: 50%; border: 5px solid white; object-fit: cover; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+    /* --- NOUVEAUX STYLES POUR "REMPLIR" LE VIDE --- */
+    .profile-stats {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin: 15px 0;
+        padding: 10px 0;
+    }
+    .stat-box { text-align: center; }
+    .stat-value { display: block; font-size: 1.2em; font-weight: 800; color: #2d3748; }
+    .stat-label { font-size: 0.85em; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .profile-bio {
+        max-width: 500px;
+        margin: 0 auto 20px auto;
+        color: #4a5568;
+        font-size: 0.95em;
+        line-height: 1.5;
+        padding: 0 20px;
+    }
+
+    .edit-profile-btn {
+        padding: 8px 25px;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        background: white;
+        font-weight: 600;
+        color: #4a5568;
+        cursor: pointer;
+        transition: 0.3s;
+        margin-bottom: 10px;
+    }
+    .edit-profile-btn:hover { background: #f7fafc; border-color: #cbd5e0; }
+
+    /* --- FLUX & SLIDER (CONSERVÉS) --- */
+    .post-card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; border: 1px solid #edf2f7; width: 100%; max-width: 550px; }
+    .media-slider-container { position: relative; width: 100%; margin-top: 15px; border-radius: 12px; overflow: hidden; background: #000; }
+    .media-slider { display: flex; transition: transform 0.4s ease-in-out; }
+    .slider-item { min-width: 100%; display: flex; justify-content: center; align-items: center; background: #000; }
+    .slider-item img, .slider-item video { max-width: 100%; max-height: 500px; display: block; }
+    .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 15px; cursor: pointer; z-index: 10; border-radius: 50%; font-weight: bold; }
+    .comment-area { margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 12px; display: none; }
+    .comment-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+</style>
+
 <div class="main-container">
-    <div class="post-card" style="padding: 0; overflow: hidden; border-top: none; grid-column: 1 / -1;">
-        <div style="height: 180px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); position: relative;">
-            <label for="cover-upload" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.4); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.3);">
-                📷 Modifier la couverture
-            </label>
-            <input type="file" id="cover-upload" style="display: none;">
+    <div class="profile-header-card">
+        <div class="cover-wrapper">
+            <div class="cover-bg-blur"></div>
+            <div class="cover-main-img"></div>
+            {% if session['user'] == user.username %}
+                <label for="cover-upload" style="position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.6); color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; z-index: 10; font-size: 0.9em;">📷 Modifier</label>
+                <input type="file" id="cover-upload" style="display: none;" accept="image/*" onchange="updateCover(this)">
+            {% endif %}
         </div>
 
-        <div style="padding: 0 20px 30px 20px; margin-top: -60px; text-align: center;">
-            <div style="display: inline-block; position: relative;">
-                {% if user.avatar %}
-                    <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}"
-                         style="width: 120px; height: 120px; border-radius: 50%; border: 5px solid white; object-fit: cover; box-shadow: 0 4px 15px rgba(0,0,0,0.15); background: white;">
+        <div style="text-align: center; padding-bottom: 25px;">
+            <div class="avatar-container">
+                <img src="{{ url_for('static', filename='avatars/' + (user.avatar if user.avatar else 'default.png')) }}" class="profile-avatar-img">
+            </div>
+
+            <h2 style="margin: 0; font-size: 1.6em; color: #1a202c;">{{ user.firstname }} {{ user.lastname }}</h2>
+            <p style="margin: 5px 0 15px 0; color: #3182ce; font-weight: 600;">@{{ user.username }}</p>
+
+            <div class="profile-stats">
+                <div class="stat-box">
+                    <span class="stat-value">{{ posts|length }}</span>
+                    <span class="stat-label">Posts</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value">
+                        {% set total_likes = namespace(value=0) %}
+                        {% for post in posts %}{% set total_likes.value = total_likes.value + (post.thumbs|int) %}{% endfor %}
+                        {{ total_likes.value }}
+                    </span>
+                    <span class="stat-label">Likes</span>
+                </div>
+            </div>
+
+            <div class="profile-bio">
+                {% if user.bio %}
+                    {{ user.bio }}
                 {% else %}
-                    <div style="width: 120px; height: 120px; border-radius: 50%; border: 5px solid white; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">👤</div>
+                    Bienvenue sur mon profil ! ✨
                 {% endif %}
             </div>
 
-            <h1 style="margin: 15px 0 5px 0; color: #2d3748; font-size: 2em; font-weight: 800;">{{ user.firstname }} {{ user.lastname }}</h1>
-            <p style="color: #718096; margin: 0; font-size: 1.1em; font-weight: 500;">@{{ user.username }}</p>
+            {% if session['user'] == user.username %}
+                <button class="edit-profile-btn">Modifier le profil</button>
+            {% endif %}
+        </div>
+    </div>
 
-            <div style="display: flex; justify-content: center; gap: 40px; margin-top: 25px; padding-top: 25px; border-top: 1px solid #edf2f7;">
-                <div style="text-align: center;">
-                    <span style="display: block; font-weight: 800; font-size: 1.5em; color: #3182ce;">{{ posts_count }}</span>
-                    <span style="color: #a0aec0; font-size: 0.8em; text-transform: uppercase; font-weight: bold;">Publications</span>
-                </div>
-                <div style="text-align: center;">
-                    <span style="display: block; font-weight: 800; font-size: 1.5em; color: #3182ce;">{{ likes_received }}</span>
-                    <span style="color: #a0aec0; font-size: 0.8em; text-transform: uppercase; font-weight: bold;">Réactions</span>
-                </div>
-            </div>
+    <div class="nav-container">
+        <div class="modern-nav">
+            <button onclick="switchView('feed')" id="btn-feed" class="nav-item-btn active">Flux</button>
+            <button onclick="switchView('grid')" id="btn-grid" class="nav-item-btn">Galerie</button>
         </div>
     </div>
 
     <div style="grid-column: 1 / -1;">
-        <div style="display: flex; justify-content: center; gap: 30px; margin: 20px 0; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;">
-            <button onclick="switchView('feed')" id="btn-feed" style="background: none; border: none; font-weight: bold; color: #3182ce; cursor: pointer; font-size: 1.1em;">📑 Flux</button>
-            <button onclick="switchView('grid')" id="btn-grid" style="background: none; border: none; font-weight: bold; color: #a0aec0; cursor: pointer; font-size: 1.1em;">🔳 Galerie</button>
-        </div>
-
         <div id="view-feed">
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
+            <div style="display: flex; flex-direction: column; align-items: center;">
                 {% for post in posts %}
-                    <div class="post-card" style="max-width: 600px; width: 100%;">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                            <img src="{{ url_for('static', filename='avatars/' + post.user_avatar) if post.user_avatar else url_for('static', filename='default_avatar.png') }}" class="avatar">
-                            <span class="username">{{ post.username }}</span>
-                        </div>
-                        <p class="content">{{ post.content }}</p>
+                <div class="post-card">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <img src="{{ url_for('static', filename='avatars/' + post.user_avatar) if post.user_avatar else url_for('static', filename='default.png') }}" class="comment-avatar">
+                        <strong style="color: #2d3748;">{{ post.username }}</strong>
+                    </div>
 
-                        {% if post.medias %}
-                            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
-                                {% for media in post.medias %}
-                                    <div style="width: 100%; background: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #edf2f7;">
-                                        {% if media.file_type == 'video' %}
-                                            <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="width: 100%; max-height: 500px; display: block;"></video>
-                                        {% else %}
-                                            <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" style="width: 100%; max-height: 500px; object-fit: contain; display: block;">
-                                        {% endif %}
-                                    </div>
-                                {% endfor %}
-                            </div>
+                    <p style="color: #4a5568; line-height: 1.5;">{{ post.content }}</p>
+
+                    {% if post.medias %}
+                    <div class="media-slider-container">
+                        {% if post.medias|length > 1 %}
+                            <button class="slider-btn prev-btn" onclick="moveSlider('{{ post.id }}', -1)">&#10094;</button>
+                            <button class="slider-btn next-btn" onclick="moveSlider('{{ post.id }}', 1)">&#10095;</button>
                         {% endif %}
-
-                        <div style="display: flex; border-top: 1px solid #eee; margin-top: 15px; padding-top: 10px; justify-content: space-around;">
-                            <button class="action-btn" onclick="react('{{ post.id }}', 'thumb')">👍 {{ post.thumbs or 0 }}</button>
-                            <button class="action-btn" onclick="react('{{ post.id }}', 'heart')"><span style="color: #e53e3e;">❤️</span> {{ post.hearts or 0 }}</button>
+                        <div id="slider-{{ post.id }}" class="media-slider" data-index="0">
+                            {% for media in post.medias %}
+                            <div class="slider-item">
+                                {% if media.file_type == 'video' %}
+                                    <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls></video>
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='uploads/' + media.filename) }}">
+                                {% endif %}
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
+                    {% endif %}
+
+                    <div style="display: flex; justify-content: space-between; margin-top: 15px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                        <span style="font-weight: 700; color: #4a5568;">👍 {{ post.thumbs or 0 }}</span>
+                        <span style="color: #3182ce; cursor: pointer; font-weight: 700;" onclick="toggleComments('{{ post.id }}')">
+                            💬 {{ post.comments|length }}
+                        </span>
+                    </div>
+
+                    <div id="comments-{{ post.id }}" class="comment-area">
+                        {% for comment in post.comments %}
+                        <div class="comment-item">
+                            <img src="{{ url_for('static', filename='avatars/' + comment.user_avatar) if comment.user_avatar else url_for('static', filename='default.png') }}" class="comment-avatar">
+                            <div class="comment-content">
+                                <strong>{{ comment.username }}</strong>: {{ comment.content }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
                 {% endfor %}
             </div>
         </div>
 
         <div id="view-grid" style="display: none;">
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; background: white; padding: 5px; border-radius: 10px;">
-        {% for post in posts %}
-            {% set post_loop_index = loop.index0 %} {# On mémorise l'index du post ici #}
-            {% if post.medias %}
-                {% for media in post.medias %}
-                    <div style="aspect-ratio: 1 / 1; overflow: hidden; border-radius: 4px; cursor: pointer; position: relative;"
-                         onclick="scrollToPost('{{ post_loop_index }}')">
-                        {% if media.file_type == 'video' %}
-                            <video src="{{ url_for('static', filename='uploads/' + media.filename) }}"
-                                   style="width: 100%; height: 100%; object-fit: cover;"></video>
-                            <div style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
-                                🎥
-                            </div>
-                        {% else %}
-                            <img src="{{ url_for('static', filename='uploads/' + media.filename) }}"
-                                 style="width: 100%; height: 100%; object-fit: cover;">
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endfor %}
-         </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                {% for post in posts %}{% if post.username == user.username and post.medias %}
+                    {% set p_idx = loop.index0 %}
+                    {% for media in post.medias %}
+                        <div style="aspect-ratio: 1/1; background: #000; border-radius: 12px; overflow: hidden; position: relative;">
+                            {% if media.file_type == 'video' %}
+                                <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="width:100%; height:100%; object-fit:contain;"></video>
+                            {% else %}
+                                <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" style="width:100%; height:100%; object-fit:cover; cursor: pointer;" onclick="scrollToPost('{{ p_idx }}')">
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% endif %}{% endfor %}
+            </div>
         </div>
     </div>
 </div>
 
 <script>
+function moveSlider(postId, direction) {
+    const slider = document.getElementById('slider-' + postId);
+    const items = slider.querySelectorAll('.slider-item');
+    let currentIndex = parseInt(slider.getAttribute('data-index'));
+    currentIndex += direction;
+    if (currentIndex >= items.length) currentIndex = 0;
+    if (currentIndex < 0) currentIndex = items.length - 1;
+    slider.setAttribute('data-index', currentIndex);
+    slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+}
+
 function switchView(view) {
-    const feed = document.getElementById('view-feed');
-    const grid = document.getElementById('view-grid');
-    const btnFeed = document.getElementById('btn-feed');
-    const btnGrid = document.getElementById('btn-grid');
-    if (view === 'feed') {
-        feed.style.display = 'block'; grid.style.display = 'none';
-        btnFeed.style.color = '#3182ce'; btnGrid.style.color = '#a0aec0';
-    } else {
-        feed.style.display = 'none'; grid.style.display = 'block';
-        btnGrid.style.color = '#3182ce'; btnFeed.style.color = '#a0aec0';
+    document.getElementById('view-feed').style.display = view === 'feed' ? 'block' : 'none';
+    document.getElementById('view-grid').style.display = view === 'grid' ? 'block' : 'none';
+    document.getElementById('btn-feed').classList.toggle('active', view === 'feed');
+    document.getElementById('btn-grid').classList.toggle('active', view === 'grid');
+}
+
+function toggleComments(id) {
+    const el = document.getElementById('comments-' + id);
+    if(el) el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+}
+
+function updateCover(input) {
+    if (input.files && input.files[0]) {
+        const formData = new FormData();
+        formData.append('cover', input.files[0]);
+        fetch('/upload_cover', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => { if (data.success) location.reload(); });
     }
-}
-
-function scrollToPost(index) {
-    switchView('feed');
-    setTimeout(() => {
-        const posts = document.querySelectorAll('#view-feed .post-card');
-        if(posts[index]) {
-            posts[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }, 100);
-}
-
-// Fonction pour les likes si tu n'as pas déjà le script
-function react(postId, type) {
-    fetch('/react', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_id: postId, type: type })
-    }).then(() => location.reload());
 }
 </script>
 {% endblock %}

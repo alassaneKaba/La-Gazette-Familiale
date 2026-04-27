@@ -342,10 +342,19 @@ def profile(username):
         """, (username,)).fetchall()
         posts = [dict(row) for row in posts_query]
         for post in posts:
-            # On s'assure de récupérer les médias
+            # 1. Récupérer les médias
             medias = db.execute("SELECT filename, file_type FROM post_medias WHERE post_id = ?",
                                 (post['id'],)).fetchall()
-            post['medias'] = [dict(m) for m in medias]  # On force la conversion en liste de dicts
+            post['medias'] = [dict(m) for m in medias]
+            # 2. RÉCUPÉRER LES COMMENTAIRES (Ce qui manquait !)
+            comments = db.execute("""
+                SELECT comments.*, users.avatar AS user_avatar 
+                FROM comments 
+                JOIN users ON comments.username = users.username 
+                WHERE post_id = ? 
+                ORDER BY created_at ASC
+            """, (post['id'],)).fetchall()
+            post['comments'] = [dict(c) for c in comments]
         posts_count = len(posts)
         total_reactions = sum((p['thumbs'] or 0) + (p['hearts'] or 0) for p in posts)
     return render_template(
@@ -355,6 +364,22 @@ def profile(username):
         posts_count=posts_count,
         likes_received=total_reactions
     )
+
+
+@app.route("/upload_cover", methods=["POST"])
+@login_required
+def upload_cover():
+    if 'cover' not in request.files:
+        return jsonify({"error": "Aucun fichier"}), 400
+    file = request.files['cover']
+    if file.filename == '':
+        return jsonify({"error": "Nom de fichier vide"}), 400
+    if file:
+        filename = secure_filename(f"cover_{session['user']}_{file.filename}")
+        file.save(os.path.join(app.config['AVATAR_FOLDER'], filename))
+        with get_db() as db:
+            db.execute("UPDATE users SET cover = ? WHERE username = ?", (filename, session['user']))
+        return jsonify({"success": True, "filename": filename})
 
 
 @app.route("/settings", methods=["GET", "POST"])
@@ -437,6 +462,7 @@ def init_db():
                 username TEXT UNIQUE, 
                 password TEXT, 
                 avatar TEXT,
+                cover TEXT
                 is_approved INTEGER DEFAULT 0,
                 is_admin INTEGER DEFAULT 0
             )

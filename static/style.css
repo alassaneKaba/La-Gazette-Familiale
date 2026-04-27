@@ -146,28 +146,39 @@ nav {
     max-height: 500px;
 }
 
+/* --- BOUTONS NAVIGATION HARMONISÉS (HOME) --- */
+/* --- BOUTONS NAVIGATION HARMONISÉS (HOME) --- */
 .prev, .next {
-    /* Étape 1 : On fixe une largeur et une hauteur identiques */
-    width: 45px;  /* Ajuste la taille selon tes goûts */
-    height: 45px;
+    width: 45px !important;
+    height: 45px !important;
+    border-radius: 50% !important;
+    position: absolute !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 999 !important; /* On s'assure qu'il est au-dessus de TOUT */
 
-    /* Étape 2 : On force un ratio 1:1 pour garantir le cercle */
-    aspect-ratio: 1 / 1;
+    /* ON FORCE LE BLEU ICI */
+    background-color: #3182ce !important;
+    color: white !important;
 
-    /* Étape 3 : On s'assure que le cercle est appliqué */
-    border-radius: 50%;
-
-    /* Étape 4 : Sécurité anti-étirement (IMPORTANT) */
-    flex-shrink: 0;  /* Si tu utilises flexbox pour le conteneur */
-    align-self: center; /* Si grid/flex, centre le bouton sans l'étirer */
-
-    /* Le reste de tes styles (background, color, etc.) reste identique */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.5); /* Exemple */
-    color: white;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    border: none !important;
+    transition: all 0.3s ease !important;
 }
 
-.next { right: 0; }
-.prev { left: 0; }
+.prev:hover, .next:hover {
+    background-color: #2a69ac !important; /* Bleu foncé */
+    transform: translateY(-50%) scale(1.1) !important;
+}
+
+.prev { left: 10px !important; }
+.next { right: 10px !important; }
+
+/* Sécurité pour masquer les boutons s'il n'y a qu'un seul média (si géré en JS) */
+.carousel-container .prev:only-child,
+.carousel-container .next:only-child {
+    display: none;
+}

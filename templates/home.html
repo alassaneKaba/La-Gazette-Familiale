@@ -48,16 +48,20 @@
     <div class="post-card" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
 
         <div style="padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+            <a href="{{ url_for('profile', username=post['username']) }}">
                 <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}"
                      style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-                <div>
+            </a>
+            <div>
+                <a href="{{ url_for('profile', username=post['username']) }}" style="text-decoration: none;">
                     <strong style="display: block; color: #1a202c;">{{ post['username'] }}</strong>
-                    <span class="live-date" data-time="{{ post['created_at'] }}" style="font-size: 0.75em; color: #718096;">
-                        {{ post['created_at'] | relative_time }}
-                    </span>
-                </div>
+                </a>
+                <span class="live-date" data-time="{{ post['created_at'] }}" style="font-size: 0.75em; color: #718096;">
+                    {{ post['created_at'] | relative_time }}
+                </span>
             </div>
+        </div>
 
             {% if session.get("user") == post['username'] %}
             <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer ce souvenir ?');" style="margin:0;">

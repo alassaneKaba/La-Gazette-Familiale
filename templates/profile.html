@@ -76,9 +76,57 @@
     .media-slider { display: flex; transition: transform 0.4s ease-in-out; }
     .slider-item { min-width: 100%; display: flex; justify-content: center; align-items: center; background: #000; }
     .slider-item img, .slider-item video { max-width: 100%; max-height: 500px; display: block; }
-    .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 15px; cursor: pointer; z-index: 10; border-radius: 50%; font-weight: bold; }
+    .slider-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #3182ce;
+        color: white;
+        border: none;
+        padding: 12px 18px; /* Un peu plus large pour le clic */
+        cursor: pointer;
+        z-index: 20; /* ON AUGMENTE LE Z-INDEX POUR PASSER DEVANT L'IMAGE */
+        border-radius: 50%;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    .slider-btn:hover { background: #2a69ac; scale: 1.1; }
+
+    /* Positions forcées pour éviter la superposition au centre */
+    .prev-btn { left: 15px !important; }
+    .next-btn { right: 15px !important; }
     .comment-area { margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 12px; display: none; }
     .comment-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+
+
+    /* --- STYLES MODALE --- */
+    .modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.6); z-index: 1000; backdrop-filter: blur(4px);
+        align-items: center; justify-content: center;
+    }
+    .modal-card {
+        background: white; border-radius: 20px; width: 90%; max-width: 450px;
+        padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideUp 0.3s ease-out;
+    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .close-modal { font-size: 1.5em; cursor: pointer; color: #a0aec0; }
+
+    .form-group { margin-bottom: 15px; text-align: left; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: #4a5568; }
+    .form-group input, .form-group textarea {
+        width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 10px; font-family: inherit;
+    }
+
+    .modal-actions { display: flex; justify-content: space-between; margin-top: 25px; gap: 10px; }
+    .save-btn { background: #3182ce; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; flex: 1; }
+    .delete-account-btn { background: #fff; color: #e53e3e; border: 1px solid #feb2b2; padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+
+    * {
+        box-sizing: border-box;
+    }
 </style>
 
 <div class="main-container">
@@ -124,7 +172,7 @@
             </div>
 
             {% if session['user'] == user.username %}
-                <button class="edit-profile-btn">Modifier le profil</button>
+                <button class="edit-profile-btn" onclick="openModal()">Modifier le profil</button>
             {% endif %}
         </div>
     </div>
@@ -139,73 +187,118 @@
     <div style="grid-column: 1 / -1;">
         <div id="view-feed">
             <div style="display: flex; flex-direction: column; align-items: center;">
-                {% for post in posts %}
-                <div class="post-card">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                        <img src="{{ url_for('static', filename='avatars/' + post.user_avatar) if post.user_avatar else url_for('static', filename='default.png') }}" class="comment-avatar">
-                        <strong style="color: #2d3748;">{{ post.username }}</strong>
-                    </div>
+                {% if posts %}
+                    {% for post in posts %}
+                    <div class="post-card">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <img src="{{ url_for('static', filename='avatars/' + post.user_avatar) if post.user_avatar else url_for('static', filename='default.png') }}" class="comment-avatar">
+                            <strong style="color: #2d3748;">{{ post.username }}</strong>
+                        </div>
 
-                    <p style="color: #4a5568; line-height: 1.5;">{{ post.content }}</p>
+                        <p style="color: #4a5568; line-height: 1.5;">{{ post.content }}</p>
 
-                    {% if post.medias %}
-                    <div class="media-slider-container">
-                        {% if post.medias|length > 1 %}
-                            <button class="slider-btn prev-btn" onclick="moveSlider('{{ post.id }}', -1)">&#10094;</button>
-                            <button class="slider-btn next-btn" onclick="moveSlider('{{ post.id }}', 1)">&#10095;</button>
+                        {% if post.medias %}
+                        <div class="media-slider-container">
+                            {% if post.medias|length > 1 %}
+                                <button class="slider-btn prev-btn" onclick="moveSlider('{{ post.id }}', -1)">&#10094;</button>
+                                <button class="slider-btn next-btn" onclick="moveSlider('{{ post.id }}', 1)">&#10095;</button>
+                            {% endif %}
+
+                            <div id="slider-{{ post.id }}" class="media-slider" data-index="0">
+                                {% for media in post.medias %}
+                                <div class="slider-item">
+                                    {% if media.file_type == 'video' %}
+                                        <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls></video>
+                                    {% else %}
+                                        <img src="{{ url_for('static', filename='uploads/' + media.filename) }}">
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                         {% endif %}
-                        <div id="slider-{{ post.id }}" class="media-slider" data-index="0">
-                            {% for media in post.medias %}
-                            <div class="slider-item">
-                                {% if media.file_type == 'video' %}
-                                    <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls></video>
-                                {% else %}
-                                    <img src="{{ url_for('static', filename='uploads/' + media.filename) }}">
-                                {% endif %}
+
+                        <div style="display: flex; justify-content: space-between; margin-top: 15px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                            <span style="font-weight: 700; color: #4a5568;">👍 {{ post.thumbs or 0 }}</span>
+                            <span style="color: #3182ce; cursor: pointer; font-weight: 700;" onclick="toggleComments('{{ post.id }}')">
+                                💬 {{ post.comments|length }}
+                            </span>
+                        </div>
+
+                        <div id="comments-{{ post.id }}" class="comment-area">
+                            {% for comment in post.comments %}
+                            <div class="comment-item">
+                                <img src="{{ url_for('static', filename='avatars/' + comment.user_avatar) if comment.user_avatar else url_for('static', filename='default.png') }}" class="comment-avatar">
+                                <div class="comment-content">
+                                    <strong>{{ comment.username }}</strong>: {{ comment.content }}
+                                </div>
                             </div>
                             {% endfor %}
                         </div>
                     </div>
-                    {% endif %}
-
-                    <div style="display: flex; justify-content: space-between; margin-top: 15px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                        <span style="font-weight: 700; color: #4a5568;">👍 {{ post.thumbs or 0 }}</span>
-                        <span style="color: #3182ce; cursor: pointer; font-weight: 700;" onclick="toggleComments('{{ post.id }}')">
-                            💬 {{ post.comments|length }}
-                        </span>
-                    </div>
-
-                    <div id="comments-{{ post.id }}" class="comment-area">
-                        {% for comment in post.comments %}
-                        <div class="comment-item">
-                            <img src="{{ url_for('static', filename='avatars/' + comment.user_avatar) if comment.user_avatar else url_for('static', filename='default.png') }}" class="comment-avatar">
-                            <div class="comment-content">
-                                <strong>{{ comment.username }}</strong>: {{ comment.content }}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <div id="view-grid" style="display: none;">
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                {% for post in posts %}{% if post.username == user.username and post.medias %}
-                    {% set p_idx = loop.index0 %}
-                    {% for media in post.medias %}
-                        <div style="aspect-ratio: 1/1; background: #000; border-radius: 12px; overflow: hidden; position: relative;">
-                            {% if media.file_type == 'video' %}
-                                <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="width:100%; height:100%; object-fit:contain;"></video>
-                            {% else %}
-                                <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" style="width:100%; height:100%; object-fit:cover; cursor: pointer;" onclick="scrollToPost('{{ p_idx }}')">
-                            {% endif %}
-                        </div>
                     {% endfor %}
-                {% endif %}{% endfor %}
+                {% else %}
+                    <div style="text-align: center; padding: 50px 20px; color: #718096;">
+                        <span style="font-size: 40px; display: block; margin-bottom: 10px;">📸</span>
+                        <p style="font-weight: 600; margin: 0;">Aucune publication pour le moment.</p>
+                        <p style="font-size: 0.9em; margin-top: 5px;">Les partages de {{ user.firstname }} apparaîtront ici.</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
+
+    <div id="view-grid" style="display: none;">
+            {% if posts %}
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                    {% for post in posts %}{% if post.username == user.username and post.medias %}
+                        {% set p_idx = loop.index0 %}
+                        {% for media in post.medias %}
+                            <div style="aspect-ratio: 1/1; background: #000; border-radius: 12px; overflow: hidden; position: relative;">
+                                {% if media.file_type == 'video' %}
+                                    <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="width:100%; height:100%; object-fit:contain;"></video>
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" style="width:100%; height:100%; object-fit:cover; cursor: pointer;" onclick="scrollToPost('{{ p_idx }}')">
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endif %}{% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 50px 20px; color: #718096;">
+                    <span style="font-size: 40px; display: block; margin-bottom: 10px;">🖼️</span>
+                    <p style="font-weight: 600; margin: 0;">La galerie est vide.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<div id="editModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Modifier mon profil</h3>
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="editProfileForm">
+            <div class="form-group">
+                <label>Prénom</label>
+                <input type="text" name="firstname" value="{{ user.firstname }}" required>
+            </div>
+            <div class="form-group">
+                <label>Nom</label>
+                <input type="text" name="lastname" value="{{ user.lastname }}" required>
+            </div>
+            <div class="form-group">
+                <label>Ma Bio</label>
+                <textarea name="bio" rows="3" placeholder="Parlez-nous de vous...">{{ user.bio or '' }}</textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="delete-account-btn" onclick="deleteAccount()">Supprimer le profil</button>
+                <button type="submit" class="save-btn">Enregistrer</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -240,6 +333,54 @@ function updateCover(input) {
         fetch('/upload_cover', { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => { if (data.success) location.reload(); });
+    }
+}
+
+function openModal() {
+    document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+// FERMER LA MODALE SI ON CLIQUE À CÔTÉ
+window.onclick = function(event) {
+    let modal = document.getElementById('editModal');
+    if (event.target == modal) closeModal();
+}
+
+// ENREGISTREMENT VIA AJAX (FETCH)
+document.getElementById('editProfileForm').onsubmit = function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    fetch('/update_profile_ajax', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Mise à jour immédiate de l'affichage sans recharger
+            document.querySelector('h2').innerText = formData.get('firstname') + ' ' + formData.get('lastname');
+            document.querySelector('.profile-bio').innerText = formData.get('bio') || "Bienvenue sur mon profil ! ✨";
+            closeModal();
+            alert("Profil mis à jour !");
+        }
+    });
+};
+
+// SUPPRESSION DU PROFIL
+function deleteAccount() {
+    if (confirm("Êtes-vous sûr de vouloir supprimer définitivement votre profil ? Cette action est irréversible.")) {
+        fetch('/delete_profile_ajax', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '/login'; // Redirection
+            }
+        });
     }
 }
 </script>

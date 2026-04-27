@@ -14,7 +14,7 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'alassanekaba2008@gmail.com'
-app.config['MAIL_PASSWORD'] = 'vecuhnaguawnofzc' # Ce n'est pas ton mdp habituel
+app.config['MAIL_PASSWORD'] = 'vecuhnaguawnofzc'  # Ce n'est pas ton mdp habituel
 app.config['MAIL_DEFAULT_SENDER'] = ('La Gazette Familiale', 'alassanekaba2008@gmail.com')
 
 mail = Mail(app)
@@ -62,6 +62,41 @@ def check_email(email):
     return jsonify({"exists": True if user else False})
 
 
+# --- NOUVELLES ROUTES AJAX POUR LE PROFIL ---
+
+@app.route('/update_profile_ajax', methods=['POST'])
+@login_required
+def update_profile_ajax():
+    firstname = request.form.get('firstname')
+    lastname = request.form.get('lastname')
+    bio = request.form.get('bio')
+    username = session['user']
+
+    with get_db() as db:
+        db.execute("UPDATE users SET firstname=?, lastname=?, bio=? WHERE username=?",
+                   (firstname, lastname, bio, username))
+        db.commit()
+
+    return jsonify({'success': True})
+
+
+@app.route('/delete_profile_ajax', methods=['POST'])
+@login_required
+def delete_profile_ajax():
+    username = session['user']
+    with get_db() as db:
+        # Nettoyage complet des données liées à l'utilisateur
+        db.execute("DELETE FROM reactions WHERE username=?", (username,))
+        db.execute("DELETE FROM comments WHERE username=?", (username,))
+        db.execute("DELETE FROM posts WHERE username=?", (username,))
+        db.execute("DELETE FROM notifications WHERE username=?", (username,))
+        db.execute("DELETE FROM users WHERE username=?", (username,))
+        db.commit()
+
+    session.clear()
+    return jsonify({'success': True})
+
+
 # --- ROUTES PRINCIPALES ---
 
 @app.route("/")
@@ -93,8 +128,8 @@ def home():
 @app.route("/admin/users")
 def admin_users():
     # Si la session ne contient pas is_admin ou si c'est False, on renvoie à l'accueil
-    #if not session.get("is_admin"):
-        #return redirect("/")
+    # if not session.get("is_admin"):
+    # return redirect("/")
     db = get_db()
     pending = db.execute("SELECT * FROM users WHERE is_approved = 0").fetchall()
     return render_template("admin.html", users=pending)
@@ -104,11 +139,9 @@ def admin_users():
 def approve_user(user_id):
     if not session.get("is_admin"):
         return redirect("/")
-
     db = get_db()
     # 1. On récupère les infos
     user = db.execute("SELECT email, firstname FROM users WHERE id = ?", (user_id,)).fetchone()
-
     if user:
         # 2. On valide en base
         db.execute("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
@@ -132,10 +165,51 @@ def approve_user(user_id):
             </div>
             """
             mail.send(msg)
-            flash(f"L'utilisateur {user['firstname']} a été approuvé et le mail HTML a été envoyé.", "success")
+            flash(f"L'utilisateur {user['firstname']} a été approuvé et un mail lui a été envoyé.", "success")
         except Exception as e:
             print(f"Erreur envoi mail : {e}")
             flash("Utilisateur approuvé, mais le mail n'est pas parti.", "warning")
+    return redirect("/admin/users")
+
+@app.route("/admin/reject/<int:user_id>", methods=["POST"])
+def reject_user(user_id):
+    if not session.get("is_admin"):
+        return redirect("/")
+    db = get_db()
+    # 1. On récupère les infos AVANT de supprimer
+    user = db.execute("SELECT email, firstname, avatar FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user:
+        # 2. Suppression de l'avatar sur le serveur (pour ne pas stocker de photos inutiles)
+        if user['avatar'] and user['avatar'] != 'default.png':
+            try:
+                import os
+                os.remove(os.path.join(app.config["AVATAR_FOLDER"], user['avatar']))
+            except Exception as e:
+                print(f"Erreur suppression fichier : {e}")
+        # 3. On supprime l'utilisateur de la base de données
+        db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        db.commit()
+        # 4. Envoi du mail de refus (Calqué sur ton système d'approbation)
+        try:
+            msg = Message("Demande d'inscription - La Gazette Familiale ❌", recipients=[user['email']])
+            msg.html = f"""
+            <div style="font-family: sans-serif; color: #2d3748; max-width: 600px; border: 1px solid #e2e8f0; padding: 20px; border-radius: 15px;">
+                <h1 style="color: #e53e3e;">🌳 La Gazette Familiale</h1>
+                <p>Bonjour <strong>{user['firstname']}</strong>,</p>
+                <p>Nous avons bien reçu ta demande d'inscription.</p>
+                <p>Malheureusement, l'administrateur n'a pas pu valider ton entrée pour le moment.</p>
+                <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
+                <p style="font-size: 0.8em; color: #718096;">
+                    Si tu penses qu'il s'agit d'une erreur, tu peux retenter ton inscription avec des informations plus précises.
+                </p>
+                <p style="font-size: 0.9em; color: #718096;">À bientôt,<br>L'administration de la famille</p>
+            </div>
+            """
+            mail.send(msg)
+            flash(f"L'utilisateur {user['firstname']} a été refusé et un mail a été envoyé.", "info")
+        except Exception as e:
+            print(f"Erreur envoi mail refus : {e}")
+            flash("Utilisateur supprimé, mais le mail de refus n'est pas parti.", "warning")
     return redirect("/admin/users")
 
 @app.context_processor
@@ -248,6 +322,7 @@ def relative_time(date_str):
     if diff.days < 7:
         return f"Il y a {diff.days} jours"
     return past.strftime('%d/%m/%Y')
+
 
 @app.route("/react/<int:post_id>/<reaction_type>", methods=["POST"])
 def react(post_id, reaction_type):
@@ -433,6 +508,7 @@ def delete_post(post_id):
     # C'est cette ligne qui évite le "Not Found"
     return redirect(url_for("home"))
 
+
 @app.route("/logout")
 def logout():
     session.pop("user", None)
@@ -462,7 +538,8 @@ def init_db():
                 username TEXT UNIQUE, 
                 password TEXT, 
                 avatar TEXT,
-                cover TEXT
+                cover TEXT,
+                bio TEXT,
                 is_approved INTEGER DEFAULT 0,
                 is_admin INTEGER DEFAULT 0
             )

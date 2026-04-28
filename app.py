@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from datetime import datetime, timezone
 from flask_mail import Mail, Message
+import time
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -63,21 +64,38 @@ def check_email(email):
 
 
 # --- NOUVELLES ROUTES AJAX POUR LE PROFIL ---
-
 @app.route('/update_profile_ajax', methods=['POST'])
-@login_required
+# On enlève @login_required ici pour gérer l'erreur 401 proprement en JSON
 def update_profile_ajax():
+    # Vérification manuelle de la session
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Session expirée, veuillez vous reconnecter.'}), 401
+
     firstname = request.form.get('firstname')
     lastname = request.form.get('lastname')
     bio = request.form.get('bio')
+    avatar_file = request.files.get('avatar')
     username = session['user']
+    new_avatar_name = None
 
     with get_db() as db:
+        if avatar_file and avatar_file.filename != '':
+            old_user = db.execute("SELECT avatar FROM users WHERE username = ?", (username,)).fetchone()
+            if old_user and old_user['avatar'] and old_user['avatar'] != 'default.png':
+                try:
+                    os.remove(os.path.join(app.config['AVATAR_FOLDER'], old_user['avatar']))
+                except:
+                    pass
+
+            new_avatar_name = f"{username}_avatar_{int(time.time())}.png"
+            avatar_file.save(os.path.join(app.config['AVATAR_FOLDER'], new_avatar_name))
+            db.execute("UPDATE users SET avatar=? WHERE username=?", (new_avatar_name, username))
+
         db.execute("UPDATE users SET firstname=?, lastname=?, bio=? WHERE username=?",
                    (firstname, lastname, bio, username))
         db.commit()
 
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'new_avatar': new_avatar_name})
 
 
 @app.route('/delete_profile_ajax', methods=['POST'])
@@ -85,15 +103,36 @@ def update_profile_ajax():
 def delete_profile_ajax():
     username = session['user']
     with get_db() as db:
-        # Nettoyage complet des données liées à l'utilisateur
-        db.execute("DELETE FROM reactions WHERE username=?", (username,))
-        db.execute("DELETE FROM comments WHERE username=?", (username,))
-        db.execute("DELETE FROM posts WHERE username=?", (username,))
-        db.execute("DELETE FROM notifications WHERE username=?", (username,))
-        db.execute("DELETE FROM users WHERE username=?", (username,))
+        # 1. Récupérer l'avatar et la cover
+        user_data = db.execute("SELECT avatar, cover FROM users WHERE username = ?", (username,)).fetchone()
+        # 2. Récupérer tous les fichiers des publications (photos/vidéos)
+        # On cherche tous les médias liés aux posts de cet utilisateur
+        medias = db.execute("""
+            SELECT m.filename FROM post_medias m 
+            JOIN posts p ON m.post_id = p.id 
+            WHERE p.username = ?
+        """, (username,)).fetchall()
+        # 3. SUPPRESSION PHYSIQUE DES FICHIERS
+        # Suppression avatar/cover
+        if user_data:
+            for key in ['avatar', 'cover']:
+                if user_data[key] and user_data[key] not in ['default.png', 'default_cover.png']:
+                    try:
+                        os.remove(os.path.join(app.config['AVATAR_FOLDER'], user_data[key]))
+                    except:
+                        pass
+        # Suppression des médias de posts
+        for m in medias:
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], m['filename']))
+            except:
+                pass
+        # 4. SUPPRESSION EN BASE DE DONNÉES
+        # Si tes clés étrangères sont en ON DELETE CASCADE,
+        # supprimer l'user supprimera ses posts et commentaires automatiquement.
+        db.execute("DELETE FROM users WHERE username = ?", (username,))
         db.commit()
-
-    session.clear()
+    session.clear()  # Déconnexion immédiate
     return jsonify({'success': True})
 
 

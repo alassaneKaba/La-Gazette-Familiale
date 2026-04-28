@@ -40,8 +40,8 @@
         display: flex;
         justify-content: center;
         gap: 30px;
-        margin: 15px 0;
-        padding: 10px 0;
+        margin: 5px 0;
+        padding: 5px 0;
     }
     .stat-box { text-align: center; }
     .stat-value { display: block; font-size: 1.2em; font-weight: 800; color: #2d3748; }
@@ -49,12 +49,20 @@
 
     .profile-bio {
         max-width: 500px;
-        margin: 0 auto 20px auto;
+        margin: 0 auto 10px auto;
         color: #4a5568;
         font-size: 0.95em;
-        line-height: 1.5;
+        line-height: 1.4;
         padding: 0 20px;
+        word-wrap: break-word;       /* Pour les anciens navigateurs */
+        overflow-wrap: break-word;   /* Pour les navigateurs modernes */
+        white-space: pre-line;       /* Pour conserver les retours à la ligne manuels */
     }
+
+    #profile-username {
+        margin: 0px 0 10px 0 !important; /* Force une petite marge */
+    }
+
 
     .edit-profile-btn {
         padding: 8px 25px;

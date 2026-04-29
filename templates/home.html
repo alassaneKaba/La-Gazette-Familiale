@@ -174,10 +174,12 @@
         .then(data => {
             if (data && data.username) {
                 let div = document.getElementById("comments-" + postId);
-                let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
 
-                // Dans ta fonction addComment, au moment de l'ajout HTML :
-                const nowUTC = new Date().toISOString().replace('T', ' ').split('.')[0]; // Format 2023-10-27 14:00:00
+                // RÉCUPÉRATION DE L'AVATAR DEPUIS LA SESSION
+                let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
+                const nowUTC = new Date().toISOString().replace('T', ' ').split('.')[0];
+
+                // On utilise la structure exacte de tes commentaires existants
                 div.innerHTML += `
                     <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
                         <img src="/static/avatars/${userAvatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
@@ -191,8 +193,15 @@
                             </span>
                         </div>
                     </div>`;
-                document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
+
+                // Mise à jour du compteur de commentaires
+                let countEl = document.getElementById("comment-count-" + postId);
+                if (countEl) {
+                    countEl.innerText = parseInt(countEl.innerText) + 1;
+                }
+
                 input.value = "";
+                div.style.display = 'block'; // S'assure que la liste est visible
             }
         });
     }

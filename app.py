@@ -263,22 +263,24 @@ def inject_pending_count():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        # On récupère "email" car c'est le "name" dans ton HTML
         email_saisi = request.form.get("email")
         password_saisi = request.form.get("password")
-        db = get_db()
-        # On cherche par EMAIL et non par username
-        user = db.execute("SELECT * FROM users WHERE email = ?", (email_saisi,)).fetchone()
-        if user and check_password_hash(user["password"], password_saisi):
-            # VERIFICATION DE L'APPROBATION
-            if user["is_approved"] == 0:
-                flash("Bienvenue ! Votre compte est en attente de validation.", "info")
-                return render_template("login.html")
-            # Si c'est bon, on ouvre la session
-            session.clear()
-            session["user"] = user["username"]  # On stocke le pseudo pour l'affichage
-            session["is_admin"] = user["is_admin"]
-            return redirect("/")
+        with get_db() as db:
+            user = db.execute("SELECT * FROM users WHERE email = ?", (email_saisi,)).fetchone()
+            if user and check_password_hash(user["password"], password_saisi):
+                # VÉRIFICATION DE L'APPROBATION
+                if user["is_approved"] == 0:
+                    flash("Votre compte est en attente de validation par l'administrateur.", "info")
+                    return render_template("login.html")
+                # CONNEXION RÉUSSIE
+                session.clear()
+                session["user"] = user["username"]
+                session["user_id"] = user["id"]
+                session["is_admin"] = user["is_admin"]
+                # --- LA CORRECTION EST ICI ---
+                # On stocke l'avatar en session pour le JavaScript (commentaires, etc.)
+                session["user_avatar"] = user["avatar"] if user["avatar"] else "default.png"
+                return redirect(url_for("home"))      # ou return redirect("/")
         flash("Email ou mot de passe incorrect", "danger")
     return render_template("login.html")
 

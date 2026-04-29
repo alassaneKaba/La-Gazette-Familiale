@@ -2,14 +2,14 @@
 
 {% block content %}
 <div style="display: grid; grid-template-columns: 1fr 300px; gap: 30px; max-width: 1100px; margin: 30px auto; padding: 0 20px;">
-
     <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: #f8fafc; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
             <h2 style="margin: 0; color: #2d3748; font-size: 1.5em; display: flex; align-items: center; gap: 10px;">
-                <span>🔔</span> Notifications
+                <span style="background: white; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">🔔</span>
+                Notifications
             </h2>
             {% if notifs %}
-            <a href="{{ url_for('mark_all_read') }}" style="text-decoration: none; color: #3182ce; font-size: 0.85em; font-weight: 700; background: #ebf8ff; padding: 8px 15px; border-radius: 10px; transition: 0.3s;">
+            <a href="{{ url_for('mark_all_read') }}" style="text-decoration: none; color: #3182ce; font-size: 0.85em; font-weight: 700; background: white; border: 1px solid #bee3f8; padding: 8px 15px; border-radius: 10px; transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 Tout marquer comme lu
             </a>
             {% endif %}
@@ -17,27 +17,32 @@
 
         {% if notifs %}
             <div style="display: flex; flex-direction: column; gap: 12px;">
-                {% for n in notifs %}
-                <a href="{{ url_for('view_post', post_id=n['post_id']) if n['post_id'] else '#' }}" style="text-decoration: none; color: inherit; display: block;">
-                    <div class="post-card" style="margin-bottom: 0; padding: 18px; display: flex; align-items: center; gap: 20px; border-left: 5px solid {% if n['is_read'] == 0 %}#3182ce{% else %}#e2e8f0{% endif %}; {% if n['is_read'] == 0 %} background: #f7fafc; {% endif %}">
-                        <div style="font-size: 28px; background: white; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                            {% if 'aimé' in n['message'] or 'réagi' in n['message'] %} 👍
-                            {% elif 'commenté' in n['message'] %} 💬
-                            {% else %} ✨ {% endif %}
+               {% for n in notifs %}
+                    {# Définition de la catégorie pour le filtrage JS #}
+                    {% set category = 'reaction' if ('aimé' in n['message'] or 'réagi' in n['message']) else 'avis' if 'commenté' in n['message'] else 'autre' %}
+                    <a href="{{ url_for('view_post', post_id=n['post_id']) if n['post_id'] else '#' }}"
+                       class="notif-item"
+                       data-type="{{ category }}"
+                       style="text-decoration: none; color: inherit; display: block;">
+                        <div class="post-card" style="margin-bottom: 0; padding: 18px; display: flex; align-items: center; gap: 20px; border-left: 5px solid {% if n['is_read'] == 0 %}#3182ce{% else %}#e2e8f0{% endif %}; {% if n['is_read'] == 0 %} background: #f7fafc; {% endif %}">
+                            <div style="font-size: 28px; background: white; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                                {% if category == 'reaction' %} 👍
+                                {% elif category == 'avis' %} 💬
+                                {% else %} ✨ {% endif %}
+                            </div>
+                            <div style="flex: 1;">
+                                <p style="margin: 0; font-size: 1.05em; color: #2d3748;">
+                                    <strong>{{ n['sender'] }}</strong> {{ n['message'] }}
+                                </p>
+                                <span style="font-size: 0.85em; color: #a0aec0;">
+                                     🕒 {{ n['created_at']|relative_time }}
+                                </span>
+                            </div>
+                            {% if n['is_read'] == 0 %}
+                                <div style="width: 10px; height: 10px; background: #3182ce; border-radius: 50%;"></div>
+                            {% endif %}
                         </div>
-                        <div style="flex: 1;">
-                            <p style="margin: 0; font-size: 1.05em; color: #2d3748;">
-                                <strong>{{ n['sender'] }}</strong> {{ n['message'] }}
-                            </p>
-                            <span style="font-size: 0.85em; color: #a0aec0;">
-                                 🕒 {{ n['created_at']|relative_time }}
-                            </span>
-                        </div>
-                        {% if n['is_read'] == 0 %}
-                            <div style="width: 10px; height: 10px; background: #3182ce; border-radius: 50%;"></div>
-                        {% endif %}
-                    </div>
-                </a>
+                    </a>
                 {% endfor %}
             </div>
         {% else %}
@@ -50,31 +55,190 @@
     </div>
 
     <aside style="display: flex; flex-direction: column; gap: 20px;">
-        <div class="post-card" style="background: linear-gradient(135deg, #3182ce, #2c5282); color: white; border: none; padding: 25px;">
-            <h4 style="margin: 0 0 20px 0; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">Vie de la tribu</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div style="text-align: center; background: rgba(255,255,255,0.15); padding: 15px; border-radius: 12px; backdrop-filter: blur(5px);">
+
+        <div class="post-card" style="padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0;">
+            <h4 style="margin: 0 0 12px 0; color: #2d3748; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">Filtrer la Gazette</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <button class="filter-btn active">Toutes</button>
+                <button class="filter-btn">👍 Réactions</button>
+                <button class="filter-btn">💬 Avis</button>
+            </div>
+        </div>
+
+        <div class="post-card" style="background: linear-gradient(135deg, #3182ce, #2c5282); color: white; border: none; padding: 25px; box-shadow: 0 10px 15px -3px rgba(49, 130, 206, 0.3);">
+            <h4 style="margin: 0 0 15px 0; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">État de la Tribu</h4>
+            <div style="display: flex; justify-content: space-around; align-items: center;">
+                <div style="text-align: center;">
                     <div style="font-size: 1.8em; font-weight: 800;">{{ total_users }}</div>
-                    <div style="font-size: 0.75em; opacity: 0.9; font-weight: 600;">Membres</div>
+                    <div style="font-size: 0.7em; opacity: 0.8;">Plumes</div>
                 </div>
-                <div style="text-align: center; background: rgba(255,255,255,0.15); padding: 15px; border-radius: 12px; backdrop-filter: blur(5px);">
+                <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.2);"></div>
+                <div style="text-align: center;">
                     <div style="font-size: 1.8em; font-weight: 800;">{{ total_posts }}</div>
-                    <div style="font-size: 0.75em; opacity: 0.9; font-weight: 600;">Histoires</div>
+                    <div style="font-size: 0.7em; opacity: 0.8;">Articles</div>
                 </div>
             </div>
         </div>
 
-        <div class="post-card" style="background: #fffaf0; border: 1px solid #feebc8; padding: 20px;">
-            <h4 style="margin: 0 0 10px 0; color: #9c4221; font-size: 1.1em;">💡 Astuce</h4>
-            <p style="font-size: 0.9em; color: #7b341e; margin: 0; line-height: 1.6;">
-                Cliquez sur une notification pour accéder directement au contenu et laisser un petit mot à vos proches !
-            </p>
+        <div class="post-card" style="padding: 0; overflow: hidden; border: 1px solid #e2e8f0;">
+            <div style="background: #fffaf0; padding: 15px; border-bottom: 1px solid #feebc8;">
+                <h4 style="margin: 0; color: #9c4221; font-size: 1em; display: flex; align-items: center; gap: 8px;">
+                    🗞️ Le Petit Écho
+                </h4>
+            </div>
+
+            <div class="post-card" style="padding: 20px; background: #f0fff4; border: 1px solid #c6f6d5; position: relative; overflow: hidden;">
+                <span style="position: absolute; right: -10px; bottom: -10px; font-size: 50px; opacity: 0.1; transform: rotate(-15deg);">🌿</span>
+                <h4 style="margin: 0 0 10px 0; color: #276749; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">La Pensée du Jour</h4>
+                <p style="margin: 0; font-size: 0.95em; color: #2f855a; line-height: 1.5; font-style: italic;">
+                    "{{ pensee_du_jour }}"
+                </p>
+            </div>
+
+            <div style="padding: 15px; display: flex; flex-direction: column; gap: 15px;">
+                {% for act in recent_activity %}
+                <div class="echo-item" style="position: relative; padding-left: 15px; border-left: 2px solid #feebc8;">
+                    <p style="margin: 0; font-size: 0.9em; color: #2d3748; line-height: 1.4;">
+                        <strong style="color: #3182ce;">{{ act['username'] }}</strong> a partagé une nouvelle histoire...
+                    </p>
+                    <p style="margin: 5px 0 0 0; font-style: italic; color: #718096; font-size: 0.85em;">
+                        "{{ act['content'][:60] }}..."
+                    </p>
+                    <small style="color: #a0aec0; font-size: 0.75em; display: block; margin-top: 5px;">
+                        {{ act['created_at']|relative_time }}
+                    </small>
+                </div>
+                {% endfor %}
+            </div>
+
+            <a href="/" style="display: block; background: #f7fafc; text-align: center; padding: 12px; font-size: 0.85em; color: #3182ce; text-decoration: none; font-weight: bold; border-top: 1px solid #edf2f7;">
+                Ouvrir la Gazette complète →
+            </a>
         </div>
+
     </aside>
 </div>
 
 <style>
-    .post-card { transition: all 0.3s ease; }
-    .post-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important; }
+    /* --- Styles Généraux --- */
+    .post-card {
+        transition: all 0.3s ease;
+    }
+
+    .post-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important;
+    }
+
+    .filter-btn {
+        background: white;
+        color: #4a5568;
+        border: 1px solid #e2e8f0;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    /* État survolé simple (quand il n'est pas actif) */
+    .filter-btn:hover {
+        background: #f7fafc !important;
+        border-color: #3182ce !important;
+        color: #3182ce !important; /* Texte bleu au survol */
+    }
+
+    /* État ACTIF (quand sélectionné) */
+    .filter-btn.active {
+        background: #3182ce !important;
+        color: white !important;
+        border-color: #3182ce !important;
+    }
+
+    /* État survolé QUAND il est déjà actif */
+    /* On force le fond à rester bleu foncé et le texte blanc */
+    .filter-btn.active:hover {
+        background: #2a69ac !important; /* Un bleu légèrement plus foncé pour montrer le clic */
+        color: white !important;
+        box-shadow: 0 2px 5px rgba(49, 130, 206, 0.4);
+    }
+
+    /* La sidebar suit le mouvement sur PC */
+    aside {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        position: -webkit-sticky; /* Pour Safari */
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+    }
+
+    /* --- Responsive (Tablettes et Téléphones) --- */
+    @media (max-width: 768px) {
+        /* On casse la grille pour mettre la sidebar en dessous */
+        div[style*="display: grid"] {
+            grid-template-columns: 1fr !important;
+            gap: 20px !important;
+        }
+
+        aside {
+            position: static !important; /* Désactive le sticky sur mobile */
+            order: 2; /* Place la sidebar après les notifications */
+        }
+
+        /* Correction du container principal */
+        div[style*="max-width: 1100px"] {
+            margin: 10px auto !important; /* Centrage automatique */
+            padding: 0 15px !important;
+            max-width: 100% !important;
+        }
+
+        /* Ajustement des cartes pour les petits écrans */
+        .post-card {
+            margin-bottom: 0 !important;
+        }
+    }
+
+    /* --- Spécifique iPhone SE (Écrans très étroits) --- */
+    @media (max-width: 380px) {
+        h2 { font-size: 1.3em !important; }
+        .post-card { padding: 12px !important; gap: 12px !important; }
+    }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filters = document.querySelectorAll('.filter-btn');
+    const notifs = document.querySelectorAll('.notif-item');
+
+    filters.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // 1. Gérer l'apparence via les classes (On laisse le CSS gérer les couleurs)
+            filters.forEach(b => {
+                b.classList.remove('active');
+            });
+            btn.classList.add('active');
+
+            // 2. Récupérer la valeur du filtre (on nettoie les emojis pour être sûr)
+            const filterValue = btn.innerText.toLowerCase();
+
+            // 3. Filtrer les notifications
+            notifs.forEach(notif => {
+                const type = notif.getAttribute('data-type');
+
+                if (filterValue.includes('toutes')) {
+                    notif.style.display = 'block';
+                } else if (filterValue.includes('réactions') && type === 'reaction') {
+                    notif.style.display = 'block';
+                } else if (filterValue.includes('avis') && type === 'avis') {
+                    notif.style.display = 'block';
+                } else {
+                    notif.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

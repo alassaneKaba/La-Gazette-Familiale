@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from datetime import datetime, timezone
 from flask_mail import Mail, Message
-import time
+import time, random
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -620,10 +620,23 @@ def notifications():
             WHERE username=? 
             ORDER BY id DESC
         """, (session["user"],)).fetchall()
+        # 2. Dernière activité (Les 3 derniers posts du site)
+        recent_activity = db.execute("""
+                    SELECT username, content, created_at 
+                    FROM posts ORDER BY id DESC LIMIT 3
+                """).fetchall()
+        citations = [
+            "La famille, c'est là où la vie commence et où l'amour ne finit jamais.",
+            "Chaque souvenir partagé ici est un trésor pour demain.",
+            "Une gazette remplie de rires est une gazette réussie !",
+            "Petit à petit, la tribu grandit et l'histoire s'écrit.",
+            "Le bonheur est fait de petites choses partagées."
+        ]
+        pensee_du_jour = random.choice(citations)
         # Optionnel : Marquer comme lu quand on visite la page
         db.execute("UPDATE notifications SET is_read = 1 WHERE username = ?", (session["user"],))
         db.commit()
-    return render_template("notifications.html", notifs=notifs)
+    return render_template("notifications.html", notifs=notifs, recent_activity=recent_activity, pensee_du_jour=pensee_du_jour)
 
 @app.route("/notifications/mark-all-read")
 @login_required

@@ -165,65 +165,69 @@
 </head>
 <body>
 
-    <nav class="navbar">
-        <div class="nav-content">
-            <div class="nav-left">
-                <a href="/" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 28px;">🌳</span>
-                    <div class="nav-text-container" style="display: flex; flex-direction: column;">
-                        <span style="font-size: 1.2em; font-weight: 800; color: #1a202c; line-height: 1;">La Gazette</span>
-                        <span style="font-size: 0.9em; font-weight: 600; color: var(--primary); line-height: 1;">Familiale</span>
-                    </div>
-                </a>
-            </div>
+<nav class="navbar">
+    <div class="nav-content">
+        <div class="nav-left">
+            <a href="/" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 28px;">🌳</span>
+                <div class="nav-text-container" style="display: flex; flex-direction: column;">
+                    <span style="font-size: 1.2em; font-weight: 800; color: #1a202c; line-height: 1;">La Gazette</span>
+                    <span style="font-size: 0.9em; font-weight: 600; color: var(--primary); line-height: 1;">Familiale</span>
+                </div>
+            </a>
+        </div>
 
-            <div class="nav-right" style="display: flex; align-items: center; gap: 5px;">
-                <a href="/" class="nav-item">🏠 <span class="nav-text" style="margin-left:5px;">Accueil</span></a>
+        <div class="nav-right" style="display: flex; align-items: center; gap: 5px;">
+            <a href="/" class="nav-item">🏠 <span class="nav-text" style="margin-left:5px;">Accueil</span></a>
 
-                {% if session.get("user") %}
-                    {% if session.get('is_admin') %}
-                    <a href="/admin/users" class="nav-item" style="background: #ebf8ff; color: var(--primary); border: 1px solid #bee3f8; margin-right: 5px;">
-                        🛡️ <span class="nav-text" style="margin-left:5px;">Admin</span>
-                        {% if pending_count and pending_count > 0 %}
-                            <span class="admin-badge">{{ pending_count }}</span>
-                        {% endif %}
-                    </a>
-                    {% endif %}
-                    <a href="{{ url_for('profile', username=session['user']) }}" class="nav-item">👤 <span class="nav-text" style="margin-left:5px;">Profil</span></a>
-                    <a href="/notifications" class="nav-item" style="position: relative;">
-                        🔔
-                        {% if unread_count > 0 %}
-                            <span style="background: #e53e3e; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; position: absolute; top: -5px; right: -5px; font-weight: bold; border: 2px solid white;">
+            {% if session.get("user") %}
+            {% if session.get('is_admin') %}
+            <a href="/admin/users" class="nav-item"
+               style="background: #ebf8ff; color: var(--primary); border: 1px solid #bee3f8; margin-right: 5px;">
+                🛡️ <span class="nav-text" style="margin-left:5px;">Admin</span>
+                {% if pending_count and pending_count > 0 %}
+                <span class="admin-badge">{{ pending_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+            <a href="{{ url_for('profile', username=session['user']) }}" class="nav-item">👤 <span class="nav-text"
+                                                                                                  style="margin-left:5px;">Profil</span></a>
+            <a href="/notifications" class="nav-item" style="position: relative;">
+                🔔
+                {% if unread_count > 0 %}
+                <span style="background: #e53e3e; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; position: absolute; top: -5px; right: -5px; font-weight: bold; border: 2px solid white;">
                                 {{ unread_count }}
                             </span>
-                        {% endif %}
-                    </a>
-                    <a href="/settings" class="nav-item">⚙️</a>
-                    <a href="/logout" style="color: var(--danger); text-decoration: none; font-weight: 700; font-size: 0.9em; margin-left:10px; padding: 8px;">Déconnecter</a>
-
-                {% else %}
-                    <a href="/login" class="nav-item">Connexion</a>
-                    <a href="/register" style="background: var(--primary); color: white; padding: 8px 16px; border-radius: 10px; text-decoration: none; font-weight: 700; margin-left: 10px;">Rejoindre</a>
                 {% endif %}
-            </div>
-        </div>
-    </nav>
+            </a>
+            <a href="/settings" class="nav-item">⚙️</a>
+            <a href="/logout"
+               style="color: var(--danger); text-decoration: none; font-weight: 700; font-size: 0.9em; margin-left:10px; padding: 8px;">Déconnecter</a>
 
-    <div class="main-container">
-        <div class="flash-messages">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="flash-msg flash-{{ category }}">
-                    {{ message }}
-                  </div>
-                {% endfor %}
-              {% endif %}
-            {% endwith %}
+            {% else %}
+            <a href="/login" class="nav-item">Connexion</a>
+            <a href="/register"
+               style="background: var(--primary); color: white; padding: 8px 16px; border-radius: 10px; text-decoration: none; font-weight: 700; margin-left: 10px;">Rejoindre</a>
+            {% endif %}
         </div>
-
-        {% block content %}{% endblock %}
     </div>
+</nav>
+
+<div class="main-container">
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash-msg flash-{{ category }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    {% block content %}{% endblock %}
+</div>
 
 </body>
 </html>

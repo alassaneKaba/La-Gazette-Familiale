@@ -210,6 +210,7 @@ def approve_user(user_id):
             flash("Utilisateur approuvé, mais le mail n'est pas parti.", "warning")
     return redirect("/admin/users")
 
+
 @app.route("/admin/reject/<int:user_id>", methods=["POST"])
 def reject_user(user_id):
     if not session.get("is_admin"):
@@ -251,6 +252,7 @@ def reject_user(user_id):
             flash("Utilisateur supprimé, mais le mail de refus n'est pas parti.", "warning")
     return redirect("/admin/users")
 
+
 @app.context_processor
 def inject_global_stats():
     stats = {'total_users': 0, 'total_posts': 0}
@@ -263,6 +265,7 @@ def inject_global_stats():
         stats = {'total_users': u_count, 'total_posts': p_count}
     return stats
 
+
 @app.context_processor
 def inject_pending_count():
     if session.get('is_admin'):
@@ -270,6 +273,7 @@ def inject_pending_count():
         count = db.execute("SELECT COUNT(*) as total FROM users WHERE is_approved = 0").fetchone()
         return {'pending_count': count['total']}
     return {'pending_count': 0}
+
 
 @app.context_processor
 def inject_notifications_count():
@@ -301,7 +305,7 @@ def login():
                 # --- LA CORRECTION EST ICI ---
                 # On stocke l'avatar en session pour le JavaScript (commentaires, etc.)
                 session["user_avatar"] = user["avatar"] if user["avatar"] else "default.png"
-                return redirect(url_for("home"))      # ou return redirect("/")
+                return redirect(url_for("home"))  # ou return redirect("/")
         flash("Email ou mot de passe incorrect", "danger")
     return render_template("login.html")
 
@@ -442,23 +446,21 @@ def add_comment(post_id):
             "INSERT INTO comments (post_id, username, content) VALUES (?, ?, ?)",
             (post_id, session["user"], content)
         )
-        # 1. On cherche l'auteur du post
+        comment_id = cursor.lastrowid  # ON RÉCUPÈRE L'ID ICI
         owner = db.execute("SELECT username FROM posts WHERE id=?", (post_id,)).fetchone()
-        # 2. On notifie si ce n'est pas l'auteur qui commente son propre post
         if owner and owner['username'] != session['user']:
+            # ON AJOUTE comment_id DANS L'INSERT (Assure-toi d'avoir ajouté la colonne en DB avant !)
             db.execute("""
-                INSERT INTO notifications (username, sender, message, post_id) 
-                VALUES (?, ?, ?, ?)
-            """, (owner['username'], session['user'], "a commenté votre publication", post_id))
+                INSERT INTO notifications (username, sender, message, post_id, comment_id) 
+                VALUES (?, ?, ?, ?, ?)
+            """, (owner['username'], session['user'], "a commenté votre publication", post_id, comment_id))
         db.commit()
-        comment_id = cursor.lastrowid
-        comment_data = db.execute(
-            "SELECT created_at FROM comments WHERE id = ?", (comment_id,)
-        ).fetchone()
+        comment_data = db.execute("SELECT created_at FROM comments WHERE id = ?", (comment_id,)).fetchone()
     return jsonify({
         "username": session["user"],
         "content": content,
-        "created_at": comment_data["created_at"]
+        "created_at": comment_data["created_at"],
+        "comment_id": comment_id  # Utile pour le JS
     })
 
 
@@ -578,6 +580,7 @@ def logout():
     session.pop("user", None)
     return redirect("/")
 
+
 @app.route("/post/<int:post_id>")
 @login_required
 def view_post(post_id):
@@ -609,17 +612,18 @@ def view_post(post_id):
     # On réutilise le template home.html, mais en ne passant QUE ce post dans une liste
     return render_template("home.html", posts=[post], comments=comments)
 
+
 @app.route("/notifications")
 @login_required
 def notifications():
     with get_db() as db:
         # On récupère toutes les colonnes pour les afficher dans notifications.html
         notifs = db.execute("""
-            SELECT sender, message, post_id, is_read, created_at 
-            FROM notifications 
-            WHERE username=? 
-            ORDER BY id DESC
-        """, (session["user"],)).fetchall()
+                    SELECT id, sender, message, post_id, comment_id, is_read, created_at 
+                    FROM notifications 
+                    WHERE username = ? 
+                    ORDER BY created_at DESC
+                """, (session['user'],)).fetchall()
         # 2. Dernière activité (Les 3 derniers posts du site)
         recent_activity = db.execute("""
                     SELECT username, content, created_at 
@@ -636,7 +640,9 @@ def notifications():
         # Optionnel : Marquer comme lu quand on visite la page
         db.execute("UPDATE notifications SET is_read = 1 WHERE username = ?", (session["user"],))
         db.commit()
-    return render_template("notifications.html", notifs=notifs, recent_activity=recent_activity, pensee_du_jour=pensee_du_jour)
+    return render_template("notifications.html", notifs=notifs, recent_activity=recent_activity,
+                           pensee_du_jour=pensee_du_jour)
+
 
 @app.route("/notifications/mark-all-read")
 @login_required
@@ -645,6 +651,7 @@ def mark_all_read():
         db.execute("UPDATE notifications SET is_read = 1 WHERE username = ?", (session["user"],))
         db.commit()
     return redirect(url_for('notifications'))
+
 
 # --- INITIALISATION ---
 
@@ -704,6 +711,7 @@ def init_db():
                 sender TEXT,        -- Celui qui a agi
                 message TEXT,
                 post_id INTEGER,    -- Pour cliquer et aller sur le post
+                comment_id INTEGER, -- envoie vers un commentaire en particulier
                 is_read INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )

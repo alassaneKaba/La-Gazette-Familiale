@@ -4,15 +4,18 @@
 <aside class="sidebar">
     <div class="post-card" style="text-align: center; border-top: 4px solid #3182ce;">
         {% if session.get("user") %}
-            <div style="font-size: 50px; margin-bottom: 10px;">🌳</div>
-            <h3 style="margin: 0; color: #2d3748;">Bonjour,</h3>
-            <h2 style="margin: 5px 0; color: #1a202c; font-size: 1.4em;">{{ session['user'] }}</h2>
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #edf2f7;">
-                <a href="{{ url_for('profile', username=session['user']) }}" style="text-decoration: none; color: #3182ce; font-weight: 700; font-size: 0.9em;">Voir mon mur →</a>
-            </div>
+        <div style="font-size: 50px; margin-bottom: 10px;">🌳</div>
+        <h3 style="margin: 0; color: #2d3748;">Bonjour,</h3>
+        <h2 style="margin: 5px 0; color: #1a202c; font-size: 1.4em;">{{ session['user'] }}</h2>
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #edf2f7;">
+            <a href="{{ url_for('profile', username=session['user']) }}"
+               style="text-decoration: none; color: #3182ce; font-weight: 700; font-size: 0.9em;">Voir mon mur →</a>
+        </div>
         {% else %}
-            <p style="color: #718096;">Connectez-vous pour participer.</p>
-            <a href="/login" style="display: inline-block; background: #3182ce; color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: bold;">Se connecter</a>
+        <p style="color: #718096;">Connectez-vous pour participer.</p>
+        <a href="/login"
+           style="display: inline-block; background: #3182ce; color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: bold;">Se
+            connecter</a>
         {% endif %}
     </div>
 </aside>
@@ -25,10 +28,13 @@
             <textarea name="content" placeholder="Quoi de neuf, {{ session['user'] }} ?" required
                       style="width: 100%; border: none; outline: none; resize: none; font-size: 1.1em; font-family: inherit; min-height: 60px; margin-bottom: 10px;"></textarea>
 
-            <div id="preview-container" style="display: none; margin-bottom: 15px; border: 1px solid #edf2f7; padding: 10px; border-radius: 12px; background: #f8fafc;">
-                <div id="preview-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;">
-                    </div>
-                <button type="button" onclick="removeFiles()" style="margin-top: 10px; background: #e53e3e; color: white; border: none; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8em; font-weight: bold;">
+            <div id="preview-container"
+                 style="display: none; margin-bottom: 15px; border: 1px solid #edf2f7; padding: 10px; border-radius: 12px; background: #f8fafc;">
+                <div id="preview-grid"
+                     style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;">
+                </div>
+                <button type="button" onclick="removeFiles()"
+                        style="margin-top: 10px; background: #e53e3e; color: white; border: none; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8em; font-weight: bold;">
                     Tout effacer
                 </button>
             </div>
@@ -36,9 +42,13 @@
             <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f7fafc; padding-top: 15px;">
                 <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9em; background: #edf2f7; padding: 8px 15px; border-radius: 20px;">
                     <span>📸 Ajouter photos / vidéos</span>
-                    <input type="file" id="image-input" name="images" accept="image/*,video/*" multiple style="display: none;" onchange="previewFiles()">
+                    <input type="file" id="image-input" name="images" accept="image/*,video/*" multiple
+                           style="display: none;" onchange="previewFiles()">
                 </label>
-                <button type="submit" style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;">Publier</button>
+                <button type="submit"
+                        style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;">
+                    Publier
+                </button>
             </div>
         </form>
     </div>
@@ -48,24 +58,27 @@
     <div class="post-card" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
 
         <div style="padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-            <a href="{{ url_for('profile', username=post['username']) }}">
-                <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}"
-                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-            </a>
-            <div>
-                <a href="{{ url_for('profile', username=post['username']) }}" style="text-decoration: none;">
-                    <strong style="display: block; color: #1a202c;">{{ post['username'] }}</strong>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <a href="{{ url_for('profile', username=post['username']) }}">
+                    <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}"
+                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
                 </a>
-                <span class="live-date" data-time="{{ post['created_at'] }}" style="font-size: 0.75em; color: #718096;">
+                <div>
+                    <a href="{{ url_for('profile', username=post['username']) }}" style="text-decoration: none;">
+                        <strong style="display: block; color: #1a202c;">{{ post['username'] }}</strong>
+                    </a>
+                    <span class="live-date" data-time="{{ post['created_at'] }}"
+                          style="font-size: 0.75em; color: #718096;">
                     {{ post['created_at'] | relative_time }}
                 </span>
+                </div>
             </div>
-        </div>
 
             {% if session.get("user") == post['username'] %}
-            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer ce souvenir ?');" style="margin:0;">
-                <button type="submit" style="background:#f7fafc; border:none; color: #a0aec0; cursor:pointer; padding: 8px; border-radius: 8px;">
+            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer ce souvenir ?');"
+                  style="margin:0;">
+                <button type="submit"
+                        style="background:#f7fafc; border:none; color: #a0aec0; cursor:pointer; padding: 8px; border-radius: 8px;">
                     <span style="font-size: 1.1em;">🗑️</span>
                 </button>
             </form>
@@ -75,28 +88,40 @@
         <div style="padding: 0 20px 10px 20px; white-space: pre-wrap; color: #2d3748;">{{ post['content'] }}</div>
 
         {% if post.medias %}
-        <div class="carousel-container" id="carousel-{{ post.id }}" style="position: relative; background: #000; display: flex; align-items: center; justify-content: center; min-height: 300px;">
+        <div class="carousel-container" id="carousel-{{ post.id }}"
+             style="position: relative; background: #000; display: flex; align-items: center; justify-content: center; min-height: 300px;">
             {% if post.medias|length > 1 %}
-            <div class="carousel-counter" style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; z-index: 10; font-weight: bold;">
+            <div class="carousel-counter"
+                 style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; z-index: 10; font-weight: bold;">
                 <span class="current">1</span> / {{ post.medias|length }}
             </div>
             {% endif %}
 
             <div class="carousel-items" style="width: 100%;">
                 {% for media in post.medias %}
-                    <div class="carousel-item {% if loop.first %}active{% endif %}" style="display: {% if loop.first %}block{% else %}none{% endif %}; text-align: center;">
-                        {% if media.file_type == 'video' %}
-                            <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="max-width: 100%; max-height: 500px; display: block; margin: 0 auto;"></video>
-                        {% else %}
-                            <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" style="max-width: 100%; max-height: 500px; object-fit: contain; display: block; margin: 0 auto;" onclick="window.open(this.src)">
-                        {% endif %}
-                    </div>
+                <div class="carousel-item {% if loop.first %}active{% endif %}"
+                     style="display: {% if loop.first %}block{% else %}none{% endif %}; text-align: center;">
+                    {% if media.file_type == 'video' %}
+                    <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls
+                           style="max-width: 100%; max-height: 500px; display: block; margin: 0 auto;"></video>
+                    {% else %}
+                    <img src="{{ url_for('static', filename='uploads/' + media.filename) }}"
+                         style="max-width: 100%; max-height: 500px; object-fit: contain; display: block; margin: 0 auto;"
+                         onclick="window.open(this.src)">
+                    {% endif %}
+                </div>
                 {% endfor %}
             </div>
 
             {% if post.medias|length > 1 %}
-                <button class="prev" onclick="moveSlide('{{ post.id }}', -1)" style="position: absolute; left: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer;">&#10094;</button>
-                <button class="next" onclick="moveSlide('{{ post.id }}', 1)" style="position: absolute; right: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer;">&#10095;</button>
+            <button class="prev" onclick="moveSlide('{{ post.id }}', -1)"
+                    style="position: absolute; left: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer;">
+                &#10094;
+            </button>
+            <button class="next" onclick="moveSlide('{{ post.id }}', 1)"
+                    style="position: absolute; right: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer;">
+                &#10095;
+            </button>
             {% endif %}
         </div>
         {% endif %}
@@ -104,38 +129,52 @@
         <div style="display: flex; justify-content: space-between; padding: 12px 20px; font-size: 0.9em; color: #65676b;">
             <div>👍 <span id="thumbs-{{ post['id'] }}">{{ post['thumbs'] }}</span></div>
             <div style="cursor: pointer;" onclick="toggleComments({{ post['id'] }})">
-                <span id="comment-count-{{ post['id'] }}">{{ comments|selectattr('post_id', 'equalto', post['id'])|list|length }}</span> commentaires
+                <span id="comment-count-{{ post['id'] }}">{{ comments|selectattr('post_id', 'equalto', post['id'])|list|length }}</span>
+                commentaires
             </div>
         </div>
 
         <div style="display: flex; border-top: 1px solid #f2f4f7; border-bottom: 1px solid #f2f4f7; margin: 0 15px; padding: 2px 0;">
-            <button onclick="react({{ post['id'] }}, 'thumb')" class="action-btn" style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">👍 J'aime</button>
-            <button onclick="toggleComments({{ post['id'] }})" class="action-btn" style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">💬 Commenter</button>
+            <button onclick="react({{ post['id'] }}, 'thumb')" class="action-btn"
+                    style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">
+                👍 J'aime
+            </button>
+            <button onclick="toggleComments({{ post['id'] }})" class="action-btn"
+                    style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">
+                💬 Commenter
+            </button>
         </div>
 
         <div id="comment-section-{{ post['id'] }}" style="display: none; background: #f0f2f5; padding: 15px 20px;">
             <div id="comments-{{ post['id'] }}">
                 {% for c in comments %}{% if c['post_id'] == post['id'] %}
-                    <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
-                        <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
-                             style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-                        <div style="display: flex; flex-direction: column;">
-                            <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                <strong style="font-size: 0.85em; display: block; color: #1c1e21;">{{ c['username'] }}</strong>
-                                <span style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
-                            </div>
-                            <span class="live-date" data-time="{{ c['created_at'] }}" style="font-size: 0.7em; color: #718096; margin-left: 10px; margin-top: 2px;">
+                <div id="comment-{{ c['id'] }}"
+                     style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
+                    <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
+                         style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <div style="display: flex; flex-direction: column;">
+                        <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <strong style="font-size: 0.85em; display: block; color: #1c1e21;">{{ c['username']
+                                }}</strong>
+                            <span style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
+                        </div>
+                        <span class="live-date" data-time="{{ c['created_at'] }}"
+                              style="font-size: 0.7em; color: #718096; margin-left: 10px; margin-top: 2px;">
                                 {{ c['created_at'] | relative_time }}
                             </span>
-                        </div>
                     </div>
+                </div>
                 {% endif %}{% endfor %}
             </div>
             {% if session.get("user") %}
-            <form onsubmit="addComment(event, {{ post['id'] }})" style="display: flex; gap: 8px; align-items: center; margin-top: 15px;">
+            <form onsubmit="addComment(event, {{ post['id'] }})"
+                  style="display: flex; gap: 8px; align-items: center; margin-top: 15px;">
                 <input id="comment-input-{{ post['id'] }}" placeholder="Écrire un commentaire..."
                        style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 20px; padding: 8px 15px; outline: none; font-size: 0.9em;">
-                <button type="submit" style="background: none; border: none; color: #1877f2; font-weight: bold; cursor: pointer;">Publier</button>
+                <button type="submit"
+                        style="background: none; border: none; color: #1877f2; font-weight: bold; cursor: pointer;">
+                    Publier
+                </button>
             </form>
             {% endif %}
         </div>
@@ -179,9 +218,9 @@
                 let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
                 const nowUTC = new Date().toISOString().replace('T', ' ').split('.')[0];
 
-                // On utilise la structure exacte de tes commentaires existants
+                // On utilise la structure exacte de tes commentaires existants (avec ID dynamique)
                 div.innerHTML += `
-                    <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
+                    <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
                         <img src="/static/avatars/${userAvatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                         <div style="display: flex; flex-direction: column;">
                             <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
@@ -315,18 +354,14 @@
             if (!timestamp) return;
 
             // On ajoute "Z" à la fin pour dire à JS : "C'est du UTC !"
-            // JS convertira alors automatiquement en heure locale pour la comparaison
             const postDate = new Date(timestamp.replace(' ', 'T') + 'Z');
             const now = new Date();
 
             const diffInSeconds = Math.floor((now - postDate) / 1000);
 
-            // Debug optionnel : console.log(diffInSeconds);
-            // Si diffInSeconds est proche de 0, c'est gagné !
-
             let newText = "";
             if (diffInSeconds < 0) {
-                newText = "À l'instant"; // Sécurité si l'horloge serveur/client dévie
+                newText = "À l'instant";
             } else if (diffInSeconds < 60) {
                 newText = "À l'instant";
             } else if (diffInSeconds < 3600) {
@@ -347,8 +382,33 @@
 
     // Lancer la mise à jour toutes les 60 secondes
     setInterval(updateLiveDates, 60000);
-
-    // Lancer aussi une fois au chargement pour synchroniser
     updateLiveDates();
+
+    // EVOL : AUTO-OPEN ET SCROLL VERS LE COMMENTAIRE
+    window.addEventListener("load", function() {
+        const hash = window.location.hash; // Récupère #comment-XX
+        if (hash && hash.startsWith('#comment-')) {
+            const commentEl = document.querySelector(hash);
+
+            if (commentEl) {
+                // On cherche la section qui contient les commentaires pour ce post précis
+                const parentSection = commentEl.closest('[id^="comment-section-"]');
+
+                if (parentSection) {
+                    parentSection.style.display = "block"; // ON OUVRE LE VOLET
+
+                    // On attend un tout petit peu que le navigateur "réalise" que c'est affiché
+                    setTimeout(() => {
+                        commentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                        // Petit effet visuel pour dire "C'est ici !"
+                        commentEl.style.transition = "background 1s";
+                        commentEl.style.backgroundColor = "#fff3cd";
+                        setTimeout(() => { commentEl.style.backgroundColor = "transparent"; }, 3000);
+                    }, 500);
+                }
+            }
+        }
+    });
 </script>
 {% endblock %}

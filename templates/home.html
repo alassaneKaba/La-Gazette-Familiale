@@ -410,5 +410,24 @@
             }
         }
     });
+
+    // FERMETURE AUTOMATIQUE AU CLIC À L'EXTÉRIEUR
+    document.addEventListener('click', function(event) {
+        // On récupère toutes les sections de commentaires ouvertes
+        const sections = document.querySelectorAll('[id^="comment-section-"]');
+
+        sections.forEach(section => {
+            // On ne fait rien si la section est déjà fermée
+            if (section.style.display === "none") return;
+
+            // On récupère le post complet (la carte) qui contient cette section
+            const postCard = section.closest('.post-card');
+
+            // Si le clic n'est PAS dans la carte du post, on ferme la section
+            if (!postCard.contains(event.target)) {
+                section.style.display = "none";
+            }
+        });
+    });
 </script>
 {% endblock %}

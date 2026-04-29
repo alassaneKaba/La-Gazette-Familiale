@@ -189,9 +189,15 @@
                         {% endif %}
                     </a>
                     {% endif %}
-
                     <a href="{{ url_for('profile', username=session['user']) }}" class="nav-item">👤 <span class="nav-text" style="margin-left:5px;">Profil</span></a>
-                    <a href="/notifications" class="nav-item">🔔</a>
+                    <a href="/notifications" class="nav-item" style="position: relative;">
+                        🔔
+                        {% if unread_count > 0 %}
+                            <span style="background: #e53e3e; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; position: absolute; top: -5px; right: -5px; font-weight: bold; border: 2px solid white;">
+                                {{ unread_count }}
+                            </span>
+                        {% endif %}
+                    </a>
                     <a href="/settings" class="nav-item">⚙️</a>
                     <a href="/logout" style="color: var(--danger); text-decoration: none; font-weight: 700; font-size: 0.9em; margin-left:10px; padding: 8px;">Déconnecter</a>
 

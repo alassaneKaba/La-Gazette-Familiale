@@ -252,12 +252,33 @@ def reject_user(user_id):
     return redirect("/admin/users")
 
 @app.context_processor
+def inject_global_stats():
+    stats = {'total_users': 0, 'total_posts': 0}
+    if session.get('user'):
+        db = get_db()
+        # Nombre total de membres approuvés
+        u_count = db.execute("SELECT COUNT(*) FROM users WHERE is_approved = 1").fetchone()[0]
+        # Nombre total de messages partagés
+        p_count = db.execute("SELECT COUNT(*) FROM posts").fetchone()[0]
+        stats = {'total_users': u_count, 'total_posts': p_count}
+    return stats
+
+@app.context_processor
 def inject_pending_count():
     if session.get('is_admin'):
         db = get_db()
         count = db.execute("SELECT COUNT(*) as total FROM users WHERE is_approved = 0").fetchone()
         return {'pending_count': count['total']}
     return {'pending_count': 0}
+
+@app.context_processor
+def inject_notifications_count():
+    if session.get('user'):
+        db = get_db()
+        count = db.execute("SELECT COUNT(*) FROM notifications WHERE username = ? AND is_read = 0",
+                           (session['user'],)).fetchone()[0]
+        return {'unread_count': count}
+    return {'unread_count': 0}
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -370,16 +391,13 @@ def react(post_id, reaction_type):
     # 1. Vérification session (Indispensable pour le JS)
     if not session.get("user"):
         return jsonify({"error": "Unauthorized"}), 403
-
     username = session["user"]
     with get_db() as db:
         # Récupérer le propriétaire du post pour la notification
         owner = db.execute("SELECT username FROM posts WHERE id=?", (post_id,)).fetchone()
-
         # Vérifier si l'utilisateur a déjà réagi
         existing = db.execute("SELECT type FROM reactions WHERE username=? AND post_id=?",
                               (username, post_id)).fetchone()
-
         if existing:
             if existing['type'] == reaction_type:
                 # Annuler la réaction (Toggle)
@@ -395,20 +413,19 @@ def react(post_id, reaction_type):
 
             # Notifier seulement s'il s'agit d'une NOUVELLE réaction et que ce n'est pas son propre post
             if owner and owner['username'] != username:
-                db.execute("INSERT INTO notifications (username, message) VALUES (?, ?)",
-                           (owner['username'], f"{username} a réagi à ton post !"))
-
+                texte_react = "a aimé votre publication" if reaction_type == 'heart' else "a réagi à votre publication"
+                db.execute("""
+                                INSERT INTO notifications (username, sender, message, post_id) 
+                                VALUES (?, ?, ?, ?)
+                            """, (owner['username'], username, texte_react, post_id))
         db.commit()
-
         # Recalculer les compteurs
         counts = db.execute("SELECT type, COUNT(*) as c FROM reactions WHERE post_id=? GROUP BY type",
                             (post_id,)).fetchall()
-
     # Préparer la réponse
     result = {"thumb": 0, "heart": 0}
     for row in counts:
         result[row['type']] = row['c']
-
     return jsonify(result)
 
 
@@ -419,19 +436,25 @@ def add_comment(post_id):
     content = request.form.get("content")
     if not content:
         return jsonify({"error": "Empty content"}), 400
-    db = get_db()
-    # On insère le commentaire (created_at se remplira tout seul via CURRENT_TIMESTAMP)
-    cursor = db.execute(
-        "INSERT INTO comments (post_id, username, content) VALUES (?, ?, ?)",
-        (post_id, session["user"], content)
-    )
-    db.commit()
-    # On récupère la date qui vient d'être générée par SQLite
-    comment_id = cursor.lastrowid
-    comment_data = db.execute(
-        "SELECT created_at FROM comments WHERE id = ?", (comment_id,)
-    ).fetchone()
-    # On renvoie le username, le contenu ET la date au format texte
+    with get_db() as db:
+        # On insère le commentaire
+        cursor = db.execute(
+            "INSERT INTO comments (post_id, username, content) VALUES (?, ?, ?)",
+            (post_id, session["user"], content)
+        )
+        # 1. On cherche l'auteur du post
+        owner = db.execute("SELECT username FROM posts WHERE id=?", (post_id,)).fetchone()
+        # 2. On notifie si ce n'est pas l'auteur qui commente son propre post
+        if owner and owner['username'] != session['user']:
+            db.execute("""
+                INSERT INTO notifications (username, sender, message, post_id) 
+                VALUES (?, ?, ?, ?)
+            """, (owner['username'], session['user'], "a commenté votre publication", post_id))
+        db.commit()
+        comment_id = cursor.lastrowid
+        comment_data = db.execute(
+            "SELECT created_at FROM comments WHERE id = ?", (comment_id,)
+        ).fetchone()
     return jsonify({
         "username": session["user"],
         "content": content,
@@ -555,15 +578,60 @@ def logout():
     session.pop("user", None)
     return redirect("/")
 
+@app.route("/post/<int:post_id>")
+@login_required
+def view_post(post_id):
+    with get_db() as db:
+        # 1. On récupère le post spécifique avec les infos de l'auteur
+        post_query = db.execute("""
+            SELECT posts.*, users.avatar AS user_avatar,
+                (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='thumb') as thumbs,
+                (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='heart') as hearts
+            FROM posts
+            JOIN users ON posts.username = users.username
+            WHERE posts.id = ?
+        """, (post_id,)).fetchone()
+        if not post_query:
+            flash("Ce post n'existe plus.", "warning")
+            return redirect(url_for('home'))
+        # 2. On transforme en dictionnaire pour ajouter les médias
+        post = dict(post_query)
+        medias = db.execute("SELECT * FROM post_medias WHERE post_id = ?", (post_id,)).fetchall()
+        post['medias'] = medias
+        # 3. On récupère les commentaires liés à ce post
+        comments = db.execute("""
+            SELECT comments.*, users.avatar AS comm_avatar
+            FROM comments 
+            JOIN users ON comments.username = users.username
+            WHERE post_id = ?
+            ORDER BY created_at ASC
+        """, (post_id,)).fetchall()
+    # On réutilise le template home.html, mais en ne passant QUE ce post dans une liste
+    return render_template("home.html", posts=[post], comments=comments)
 
 @app.route("/notifications")
 @login_required
 def notifications():
     with get_db() as db:
-        notifs = db.execute("SELECT message FROM notifications WHERE username=? ORDER BY id DESC",
-                            (session["user"],)).fetchall()
+        # On récupère toutes les colonnes pour les afficher dans notifications.html
+        notifs = db.execute("""
+            SELECT sender, message, post_id, is_read, created_at 
+            FROM notifications 
+            WHERE username=? 
+            ORDER BY id DESC
+        """, (session["user"],)).fetchall()
+        # Optionnel : Marquer comme lu quand on visite la page
+        db.execute("UPDATE notifications SET is_read = 1 WHERE username = ?", (session["user"],))
+        db.commit()
     return render_template("notifications.html", notifs=notifs)
 
+@app.route("/notifications/mark-all-read")
+@login_required
+def mark_all_read():
+    with get_db() as db:
+        db.execute("UPDATE notifications SET is_read = 1 WHERE username = ?", (session["user"],))
+        db.commit()
+    return redirect(url_for('notifications'))
 
 # --- INITIALISATION ---
 
@@ -616,8 +684,17 @@ def init_db():
         """)
         db.execute(
             "CREATE TABLE IF NOT EXISTS reactions (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, post_id INTEGER, type TEXT, UNIQUE(username, post_id))")
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, message TEXT)")
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,      -- Celui qui reçoit
+                sender TEXT,        -- Celui qui a agi
+                message TEXT,
+                post_id INTEGER,    -- Pour cliquer et aller sur le post
+                is_read INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
 
 init_db()

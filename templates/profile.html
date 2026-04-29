@@ -445,5 +445,26 @@ function updateFileName(input) {
         fileNameSpan.style.color = "#718096";
     }
 }
+
+  document.addEventListener('click', function(event) {
+    // On cible spécifiquement les divs qui ont la classe "comment-area"
+    const sections = document.querySelectorAll('.comment-area');
+
+    sections.forEach(section => {
+        // On ne s'occupe que de celles qui sont affichées
+        if (window.getComputedStyle(section).display === "block") {
+
+            const postCard = section.closest('.post-card');
+
+            // On vérifie si le clic est à l'intérieur de la carte du post
+            const isInside = postCard.contains(event.target);
+
+            // Si le clic est à l'extérieur de la carte, on ferme
+            if (!isInside) {
+                section.style.display = "none";
+            }
+        }
+    });
+});
 </script>
 {% endblock %}

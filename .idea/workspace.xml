@@ -5,10 +5,52 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="37af5866-2fce-4ae1-ac70-193d35c99971" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/database.db" beforeDir="false" afterPath="$PROJECT_DIR$/database.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/base.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/base.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/08710250711015_25071101.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/128x128.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/Robot-framework-logo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/WhatsApp_Image_2026-04-25_at_13.14.37.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/alassane_kaba_avatar_1777468458.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_alassane_kaba_WhatsApp_Image_2026-04-25_at_13.14.37_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_alassane_kaba_WhatsApp_Image_2026-04-25_at_13.14.37_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_alassane_kaba_WhatsApp_Image_2026-04-25_at_13.14.40.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_alassane_kaba_WhatsApp_Image_2026-04-25_at_13.14.40_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_alassane_kaba_WhatsApp_Image_2026-04-25_at_13.14.40_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_saouda_inzoudine_WhatsApp_Image_2026-04-25_at_13.14.37.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_saouda_inzoudine_WhatsApp_Image_2026-04-25_at_13.14.37_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_saouda_inzoudine_WhatsApp_Image_2026-04-25_at_13.14.37_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_saouda_inzoudine_WhatsApp_Image_2026-04-25_at_13.14.40.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_saouda_inzoudine_WhatsApp_Image_2026-04-25_at_13.14.40_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_saouda_inzoudine_WhatsApp_Image_2026-04-25_at_13.14.40_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/cover_user_for_test_08710250711015_25071101_redim.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/default.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/kay_kaba_WhatsApp_Image_2026-04-25_at_13.14.40_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/kay_kaba_WhatsApp_Image_2026-04-25_at_13.14.40_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/kay_kaba_avatar_1777494598.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/kaykaba_WhatsApp_Image_2026-04-25_at_13.14.40_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/robot-framework-logo-png_seeklogo-462634.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/saouda_inzoudine_WhatsApp_Image_2026-04-25_at_13.14.37.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/saouda_inzoudine_WhatsApp_Image_2026-04-25_at_13.14.37_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/squash.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/user_for_test_08710250711015_25071101.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/avatars/usertest_WhatsApp_Image_2026-04-25_at_13.14.40_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/08710250711015_25071101.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/WhatsApp_Image_2026-04-25_at_13.14.37.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/WhatsApp_Image_2026-04-25_at_13.14.37_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/WhatsApp_Image_2026-04-25_at_13.14.37_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/WhatsApp_Image_2026-04-25_at_13.14.40.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/WhatsApp_Image_2026-04-25_at_13.14.40_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/WhatsApp_Image_2026-04-25_at_13.14.40_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/alassane_kaba_25ef_WhatsApp_Image_2026-04-25_at_13.14.40_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/alassane_kaba_92c4_WhatsApp_Image_2026-04-25_at_13.14.37_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/alassane_kaba_ba07_WhatsApp_Image_2026-04-25_at_13.14.37_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/image_2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/magi.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/saouda_inzoudine_be78_WhatsApp_Image_2026-04-25_at_13.14.37_2.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/static/uploads/saouda_inzoudine_fc71_WhatsApp_Image_2026-04-25_at_13.14.40_1.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/home.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/home.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

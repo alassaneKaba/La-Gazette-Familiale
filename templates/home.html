@@ -1,6 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+    .zoomable {
+        max-width: 100%;
+        max-height: 500px;
+        display: block;
+        margin: 0 auto;
+        transition: transform 0.2s;
+        object-fit: contain;
+    }
+    .zoomable:hover {
+        opacity: 0.9;
+    }
+</style>
+
 <aside class="sidebar">
     <div class="post-card" style="text-align: center; border-top: 4px solid #3182ce;">
         {% if session.get("user") %}
@@ -106,8 +120,9 @@
                            style="max-width: 100%; max-height: 500px; display: block; margin: 0 auto;"></video>
                     {% else %}
                     <img src="{{ url_for('static', filename='uploads/' + media.filename) }}"
-                         style="max-width: 100%; max-height: 500px; object-fit: contain; display: block; margin: 0 auto;"
-                         onclick="window.open(this.src)">
+                         class="zoomable"
+                         onclick="openLightbox(this.src)"
+                         style="cursor: zoom-in;">
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -183,7 +198,18 @@
 
 </main>
 
+<div id="lightbox" onclick="this.style.display='none'"
+     style="display:none; position:fixed; z-index:9999; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); cursor:zoom-out; align-items:center; justify-content:center;">
+    <img id="lightbox-img" style="max-width:95%; max-height:95%; border-radius:5px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
+</div>
+
 <script>
+    // --- GESTION LIGHTBOX ---
+    function openLightbox(src) {
+        document.getElementById('lightbox-img').src = src;
+        document.getElementById('lightbox').style.display = 'flex';
+    }
+
     // --- INTERACTIONS DE BASE ---
     function toggleComments(postId) {
         const section = document.getElementById('comment-section-' + postId);
@@ -304,6 +330,13 @@
         let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
 
         if (activeIndex === -1) activeIndex = 0;
+
+        // ARRÊTER LA VIDÉO SI ELLE EST EN TRAIN DE JOUER ---
+        const currentMedia = items[activeIndex].querySelector('video');
+        if (currentMedia) {
+            currentMedia.pause();
+            currentMedia.currentTime = 0; // Remet la vidéo au début
+        }
 
         // Masquer l'ancien
         items[activeIndex].classList.remove('active');

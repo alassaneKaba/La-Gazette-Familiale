@@ -6,6 +6,7 @@ from functools import wraps
 from datetime import datetime, timezone
 from flask_mail import Mail, Message
 import time, random
+from PIL import Image
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -36,12 +37,26 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'webm'}
 
 
 # --- UTILITAIRES ---
-
 def get_db():
     db = sqlite3.connect("database.db")
     db.row_factory = sqlite3.Row
     return db
 
+
+def process_image(file_path):
+    """Compresse et redimensionne l'image pour optimiser le stockage et l'affichage."""
+    with Image.open(file_path) as img:
+        # Convertir en RGB (pour gérer les formats comme RGBA/PNG avec transparence vers JPEG si besoin)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        # Redimensionnement maximal (ex: 1200px de large) tout en gardant les proportions
+        max_size = 1200
+        if img.width > max_size:
+            ratio = max_size / float(img.width)
+            new_height = int(float(img.height) * float(ratio))
+            img = img.resize((max_size, new_height), Image.Resampling.LANCZOS)
+        # Sauvegarde avec compression (qualité 85 est le standard web)
+        img.save(file_path, "JPEG", optimize=True, quality=85)
 
 def login_required(f):
     @wraps(f)
@@ -390,10 +405,16 @@ def post():
         # Gestion des médias multiples
         for file in files:
             if file and file.filename != '':
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-                # Déterminer si c'est une vidéo ou une image
-                file_type = 'video' if filename.rsplit('.', 1)[1].lower() in ['mp4', 'mov', 'webm'] else 'image'
+                filename = secure_filename(f"{int(time.time())}_{file.filename}")
+                file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                file.save(file_path)
+                # DÉTERMINER LE TYPE
+                ext = filename.rsplit('.', 1)[1].lower()
+                if ext in ['jpg', 'jpeg', 'png', 'gif']:
+                    process_image(file_path)  # <--- ON COMPRESSE ICI
+                    file_type = 'image'
+                else:
+                    file_type = 'video'
                 db.execute("INSERT INTO post_medias (post_id, filename, file_type) VALUES (?, ?, ?)",
                            (post_id, filename, file_type))
     return redirect("/")

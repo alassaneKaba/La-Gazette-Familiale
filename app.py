@@ -213,43 +213,42 @@ def approve_user(user_id):
 
 @app.route("/admin/reject/<int:user_id>", methods=["POST"])
 def reject_user(user_id):
+    # La vérification admin est active ici, assure-toi que ton compte admin a bien is_admin=1 en base
     if not session.get("is_admin"):
         return redirect("/")
-    db = get_db()
-    # 1. On récupère les infos AVANT de supprimer
-    user = db.execute("SELECT email, firstname, avatar FROM users WHERE id = ?", (user_id,)).fetchone()
-    if user:
-        # 2. Suppression de l'avatar sur le serveur (pour ne pas stocker de photos inutiles)
-        if user['avatar'] and user['avatar'] != 'default.png':
+    with get_db() as db:
+        # 1. On récupère les infos AVANT de supprimer
+        user = db.execute("SELECT email, firstname, avatar FROM users WHERE id = ?", (user_id,)).fetchone()
+        if user:
+            # 2. Suppression de l'avatar physique
+            if user['avatar'] and user['avatar'] != 'default.png':
+                try:
+                    path = os.path.join(app.config["AVATAR_FOLDER"], user['avatar'])
+                    if os.path.exists(path):
+                        os.remove(path)
+                except Exception as e:
+                    print(f"Erreur fichier : {e}")
+            # 3. SUPPRESSION DÉFINITIVE ET COMMIT IMMÉDIAT
+            db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            db.commit()
+            # 4. Envoi du mail (placé après le commit pour être sûr que l'user est supprimé)
             try:
-                import os
-                os.remove(os.path.join(app.config["AVATAR_FOLDER"], user['avatar']))
+                msg = Message("Demande d'inscription - La Gazette Familiale ❌", recipients=[user['email']])
+                msg.html = f"""
+                <div style="font-family: sans-serif; color: #2d3748; max-width: 600px; border: 1px solid #e2e8f0; padding: 20px; border-radius: 15px;">
+                    <h1 style="color: #e53e3e;">🌳 La Gazette Familiale</h1>
+                    <p>Bonjour <strong>{user['firstname']}</strong>,</p>
+                    <p>Nous avons bien reçu ta demande d'inscription.</p>
+                    <p>Malheureusement, l'administrateur n'a pas pu valider ton entrée pour le moment.</p>
+                    <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
+                    <p style="font-size: 0.9em; color: #718096;">À bientôt,<br>L'administration de la famille</p>
+                </div>
+                """
+                mail.send(msg)
+                flash(f"L'utilisateur {user['firstname']} a été refusé.", "info")
             except Exception as e:
-                print(f"Erreur suppression fichier : {e}")
-        # 3. On supprime l'utilisateur de la base de données
-        db.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        db.commit()
-        # 4. Envoi du mail de refus (Calqué sur ton système d'approbation)
-        try:
-            msg = Message("Demande d'inscription - La Gazette Familiale ❌", recipients=[user['email']])
-            msg.html = f"""
-            <div style="font-family: sans-serif; color: #2d3748; max-width: 600px; border: 1px solid #e2e8f0; padding: 20px; border-radius: 15px;">
-                <h1 style="color: #e53e3e;">🌳 La Gazette Familiale</h1>
-                <p>Bonjour <strong>{user['firstname']}</strong>,</p>
-                <p>Nous avons bien reçu ta demande d'inscription.</p>
-                <p>Malheureusement, l'administrateur n'a pas pu valider ton entrée pour le moment.</p>
-                <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
-                <p style="font-size: 0.8em; color: #718096;">
-                    Si tu penses qu'il s'agit d'une erreur, tu peux retenter ton inscription avec des informations plus précises.
-                </p>
-                <p style="font-size: 0.9em; color: #718096;">À bientôt,<br>L'administration de la famille</p>
-            </div>
-            """
-            mail.send(msg)
-            flash(f"L'utilisateur {user['firstname']} a été refusé et un mail a été envoyé.", "info")
-        except Exception as e:
-            print(f"Erreur envoi mail refus : {e}")
-            flash("Utilisateur supprimé, mais le mail de refus n'est pas parti.", "warning")
+                print(f"Erreur mail : {e}")
+                flash("Utilisateur supprimé, mais le mail n'est pas parti.", "warning")
     return redirect("/admin/users")
 
 
@@ -329,16 +328,48 @@ def register():
             avatar.save(os.path.join(app.config["AVATAR_FOLDER"], filename))
         hashed_password = generate_password_hash(password)
         try:
+            # 1. ENREGISTREMENT EN BASE DE DONNÉES
             with get_db() as db:
-                # On force is_approved à 0 et is_admin à 0 pour les nouveaux inscrits
                 db.execute("""
                     INSERT INTO users (firstname, lastname, email, username, password, avatar, is_approved, is_admin) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (firstname, lastname, email, username, hashed_password, filename, 0, 0))
                 db.commit()
-            # Nouveau message personnalisé pour la tribu
-            flash("Bienvenue dans la tribu ! Ta demande d'accès est en attente de validation par l'administrateur.",
-                  "info")
+            # 2. ENVOI DU MAIL À L'ADMIN
+            try:
+                base_url = request.host_url
+                msg = Message(
+                    subject="Nouvelle demande d'adhésion 🌳",
+                    recipients=["alassanekaba2008@gmail.com"]
+                )
+                msg.html = f"""
+                <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 15px; overflow: hidden;">
+                    <div style="background-color: #3182ce; padding: 20px; text-align: center; color: white;">
+                        <h1 style="margin: 0; font-size: 24px;">🌳 La Gazette Familiale</h1>
+                    </div>
+                    <div style="padding: 30px; background-color: white;">
+                        <h2 style="color: #2d3748; margin-top: 0;">Nouvelle inscription !</h2>
+                        <p style="color: #4a5568; line-height: 1.6;">Bonjour Admin, un nouveau membre attend ta validation pour rejoindre la tribu.</p>
+                        <div style="background-color: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #edf2f7;">
+                            <p style="margin: 5px 0;"><strong>👤 Nom :</strong> {firstname} {lastname}</p>
+                            <p style="margin: 5px 0;"><strong>🆔 Pseudo :</strong> @{username}</p>
+                            <p style="margin: 5px 0;"><strong>📧 Email :</strong> {email}</p>
+                        </div>
+                        <div style="text-align: center; margin-top: 30px;">
+                            <a href="{base_url}admin/users" 
+                               style="background-color: #3182ce; color: white; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">
+                               Accéder aux demandes
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                """
+                msg.body = f"Nouvelle inscription : {firstname} {lastname}. Validez ici : {base_url}admin/users"
+                mail.send(msg)
+            except Exception as e:
+                print(f"Erreur d'envoi mail : {e}")
+            # 3. RÉPONSE À L'UTILISATEUR (Bien aligné en dehors du try/except mail)
+            flash("Bienvenue dans la tribu ! Ta demande d'accès est en attente de validation.", "info")
             return redirect("/login")
         except sqlite3.IntegrityError:
             flash("Ce nom d'utilisateur ou cet e-mail est déjà utilisé.", "danger")

@@ -534,44 +534,58 @@ def add_comment(post_id):
 
 @app.route('/react_comment/<int:comment_id>', methods=['POST'])
 def react_comment(comment_id):
-    # 1. Vérification de la session
-    if 'user' not in session or 'user_id' not in session:
+    if 'user' not in session:
         return jsonify({"error": "unauthorized"}), 401
-    user_id = session.get('user_id')
+
+    current_user = session.get('user')  # Le nom de celui qui clique (le 'sender')
+    user_id_num = session.get('user_id')  # L'ID numérique pour la table reactions
     db = get_db()
+
     try:
-        # 2. Vérifier si la réaction existe déjà
+        # 1. On récupère l'auteur du commentaire et l'id du post
+        res = db.execute("SELECT username, post_id, content FROM comments WHERE id = ?", (comment_id,)).fetchone()
+        if not res:
+            return jsonify({"error": "notFound"}), 404
+
+        target_username = res[0]  # La colonne 'username' de ta table notifications
+        post_id = res[1]
+        comment_text = res[2]
+
+        # 2. Toggle du Like
         already_liked = db.execute(
             "SELECT 1 FROM comment_reactions WHERE user_id = ? AND comment_id = ?",
-            (user_id, comment_id)
+            (user_id_num, comment_id)
         ).fetchone()
-        if already_liked:
-            # On retire le like
-            db.execute(
-                "DELETE FROM comment_reactions WHERE user_id = ? AND comment_id = ?",
-                (user_id, comment_id)
-            )
-        else:
-            # On ajoute le like
-            db.execute(
-                "INSERT INTO comment_reactions (user_id, comment_id) VALUES (?, ?)",
-                (user_id, comment_id)
-            )
-        db.commit()
-        # 3. Récupérer le nouveau total
-        count_row = db.execute(
-            "SELECT COUNT(*) FROM comment_reactions WHERE comment_id = ?",
-            (comment_id,)
-        ).fetchone()
-        total_likes = count_row[0] if count_row else 0
-        return jsonify({
-            "status": "success",
-            "total": total_likes
-        })
-    except Exception as e:
-        print(f"Erreur lors du like commentaire: {e}")
-        return jsonify({"error": "database_error"}), 500
 
+        if already_liked:
+            db.execute("DELETE FROM comment_reactions WHERE user_id = ? AND comment_id = ?", (user_id_num, comment_id))
+        else:
+            db.execute("INSERT INTO comment_reactions (user_id, comment_id) VALUES (?, ?)", (user_id_num, comment_id))
+
+            # 3. Notification (si ce n'est pas notre propre commentaire)
+            if target_username != current_user:
+                # On coupe le texte pour le message de notif
+                preview = (comment_text[:30] + '...') if comment_text else ""
+                msg = f"a aimé votre commentaire : \"{preview}\""
+
+                # ICI : On respecte l'ordre de tes colonnes (id auto, username, sender, message, post_id, comment_id, is_read, create...)
+                db.execute("""
+                    INSERT INTO notifications (username, sender, message, post_id, comment_id, is_read, created_at)
+                    VALUES (?, ?, ?, ?, ?, 0, datetime('now'))
+                """, (target_username, current_user, msg, post_id, comment_id))
+
+        db.commit()
+
+        # 4. Compter le total
+        count = db.execute("SELECT COUNT(*) FROM comment_reactions WHERE comment_id = ?", (comment_id,)).fetchone()[0]
+
+        # IMPORTANT : On renvoie 'total' pour le JS
+        return jsonify({"total": count})
+
+    except Exception as e:
+        db.rollback()
+        print(f"Erreur Python : {e}")  # Regarde ton terminal pour voir l'erreur précise
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/user/<username>")
 @login_required
@@ -710,15 +724,18 @@ def view_post(post_id):
         post = dict(post_query)
         medias = db.execute("SELECT * FROM post_medias WHERE post_id = ?", (post_id,)).fetchall()
         post['medias'] = medias
-        # 3. On récupère les commentaires liés à ce post
-        comments = db.execute("""
-            SELECT comments.*, users.avatar AS comm_avatar
+        # 3. CORRECTION : Ajout du COUNT(*) pour les likes des commentaires
+        comments_query = db.execute("""
+            SELECT comments.*, users.avatar AS comm_avatar,
+                (SELECT COUNT(*) FROM comment_reactions WHERE comment_id = comments.id) as like_count
             FROM comments 
             JOIN users ON comments.username = users.username
             WHERE post_id = ?
             ORDER BY created_at ASC
         """, (post_id,)).fetchall()
-    # On réutilise le template home.html, mais en ne passant QUE ce post dans une liste
+        # Conversion en liste de dicts pour la cohérence avec home.html
+        comments = [dict(row) for row in comments_query]
+    # On passe posts=[post] car home.html boucle sur une liste de posts
     return render_template("home.html", posts=[post], comments=comments)
 
 

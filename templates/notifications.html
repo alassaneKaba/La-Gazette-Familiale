@@ -19,9 +19,9 @@
         {% if notifs %}
         <div style="display: flex; flex-direction: column; gap: 12px;">
             {% for n in notifs %}
-            {# Définition de la catégorie pour le filtrage JS #}
-            {% set category = 'reaction' if ('aimé' in n['message'] or 'réagi' in n['message']) else 'avis' if
-            'commenté' in n['message'] else 'autre' %}
+            {% set category = 'reaction' if ('aimé' in n['message'] or 'réagi' in n['message']) else 'avis' if 'commenté' in n['message'] else 'autre' %}
+
+            {# MODIFICATION ICI : On s'assure d'envoyer vers l'ID du commentaire (qu'il soit parent ou réponse) #}
             <a href="{{ url_for('view_post', post_id=n['post_id']) }}#comment-{{ n['comment_id'] }}"
                class="notif-item"
                data-type="{{ category }}"
@@ -58,10 +58,8 @@
     </div>
 
     <aside style="display: flex; flex-direction: column; gap: 20px;">
-
         <div class="post-card" style="padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0;">
-            <h4 style="margin: 0 0 12px 0; color: #2d3748; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">
-                Filtrer la Gazette</h4>
+            <h4 style="margin: 0 0 12px 0; color: #2d3748; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">Filtrer la Gazette</h4>
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                 <button class="filter-btn active">Toutes</button>
                 <button class="filter-btn">👍 Réactions</button>
@@ -69,10 +67,8 @@
             </div>
         </div>
 
-        <div class="post-card"
-             style="background: linear-gradient(135deg, #3182ce, #2c5282); color: white; border: none; padding: 25px; box-shadow: 0 10px 15px -3px rgba(49, 130, 206, 0.3);">
-            <h4 style="margin: 0 0 15px 0; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">
-                État de la Tribu</h4>
+        <div class="post-card" style="background: linear-gradient(135deg, #3182ce, #2c5282); color: white; border: none; padding: 25px; box-shadow: 0 10px 15px -3px rgba(49, 130, 206, 0.3);">
+            <h4 style="margin: 0 0 15px 0; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">État de la Tribu</h4>
             <div style="display: flex; justify-content: space-around; align-items: center;">
                 <div style="text-align: center;">
                     <div style="font-size: 1.8em; font-weight: 800;">{{ total_users }}</div>
@@ -88,164 +84,62 @@
 
         <div class="post-card" style="padding: 0; overflow: hidden; border: 1px solid #e2e8f0;">
             <div style="background: #fffaf0; padding: 15px; border-bottom: 1px solid #feebc8;">
-                <h4 style="margin: 0; color: #9c4221; font-size: 1em; display: flex; align-items: center; gap: 8px;">
-                    🗞️ Le Petit Écho
-                </h4>
+                <h4 style="margin: 0; color: #9c4221; font-size: 1em; display: flex; align-items: center; gap: 8px;">🗞️ Le Petit Écho</h4>
             </div>
-
-            <div class="post-card"
-                 style="padding: 20px; background: #f0fff4; border: 1px solid #c6f6d5; position: relative; overflow: hidden;">
+            <div class="post-card" style="padding: 20px; background: #f0fff4; border: 1px solid #c6f6d5; position: relative; overflow: hidden;">
                 <span style="position: absolute; right: -10px; bottom: -10px; font-size: 50px; opacity: 0.1; transform: rotate(-15deg);">🌿</span>
-                <h4 style="margin: 0 0 10px 0; color: #276749; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">
-                    La Pensée du Jour</h4>
-                <p style="margin: 0; font-size: 0.95em; color: #2f855a; line-height: 1.5; font-style: italic;">
-                    "{{ pensee_du_jour }}"
-                </p>
+                <h4 style="margin: 0 0 10px 0; color: #276749; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">La Pensée du Jour</h4>
+                <p style="margin: 0; font-size: 0.95em; color: #2f855a; line-height: 1.5; font-style: italic;">"{{ pensee_du_jour }}"</p>
             </div>
-
             <div style="padding: 15px; display: flex; flex-direction: column; gap: 15px;">
                 {% for act in recent_activity %}
                 <div class="echo-item" style="position: relative; padding-left: 15px; border-left: 2px solid #feebc8;">
                     <p style="margin: 0; font-size: 0.9em; color: #2d3748; line-height: 1.4;">
-                        <strong style="color: #3182ce;">{{ act['username'] }}</strong> a partagé une nouvelle
-                        histoire...
+                        <strong style="color: #3182ce;">{{ act['username'] }}</strong> a partagé une nouvelle histoire...
                     </p>
-                    <p style="margin: 5px 0 0 0; font-style: italic; color: #718096; font-size: 0.85em;">
-                        "{{ act['content'][:60] }}..."
-                    </p>
-                    <small style="color: #a0aec0; font-size: 0.75em; display: block; margin-top: 5px;">
-                        {{ act['created_at']|relative_time }}
-                    </small>
+                    <p style="margin: 5px 0 0 0; font-style: italic; color: #718096; font-size: 0.85em;">"{{ act['content'][:60] }}..."</p>
+                    <small style="color: #a0aec0; font-size: 0.75em; display: block; margin-top: 5px;">{{ act['created_at']|relative_time }}</small>
                 </div>
                 {% endfor %}
             </div>
-
-            <a href="/"
-               style="display: block; background: #f7fafc; text-align: center; padding: 12px; font-size: 0.85em; color: #3182ce; text-decoration: none; font-weight: bold; border-top: 1px solid #edf2f7;">
-                Ouvrir la Gazette complète →
-            </a>
+            <a href="/" style="display: block; background: #f7fafc; text-align: center; padding: 12px; font-size: 0.85em; color: #3182ce; text-decoration: none; font-weight: bold; border-top: 1px solid #edf2f7;">Ouvrir la Gazette complète →</a>
         </div>
-
     </aside>
 </div>
 
 <style>
-    /* --- Styles Généraux --- */
-    .post-card {
-        transition: all 0.3s ease;
-    }
-
-    .post-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important;
-    }
-
-    .filter-btn {
-        background: white;
-        color: #4a5568;
-        border: 1px solid #e2e8f0;
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-size: 0.8em;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    /* État survolé simple (quand il n'est pas actif) */
-    .filter-btn:hover {
-        background: #f7fafc !important;
-        border-color: #3182ce !important;
-        color: #3182ce !important; /* Texte bleu au survol */
-    }
-
-    /* État ACTIF (quand sélectionné) */
-    .filter-btn.active {
-        background: #3182ce !important;
-        color: white !important;
-        border-color: #3182ce !important;
-    }
-
-    /* État survolé QUAND il est déjà actif */
-    /* On force le fond à rester bleu foncé et le texte blanc */
-    .filter-btn.active:hover {
-        background: #2a69ac !important; /* Un bleu légèrement plus foncé pour montrer le clic */
-        color: white !important;
-        box-shadow: 0 2px 5px rgba(49, 130, 206, 0.4);
-    }
-
-    /* La sidebar suit le mouvement sur PC */
-    aside {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        position: -webkit-sticky; /* Pour Safari */
-        position: sticky;
-        top: 20px;
-        height: fit-content;
-    }
-
-    /* --- Responsive (Tablettes et Téléphones) --- */
+    /* Pas de changements ici pour rester léger */
+    .post-card { transition: all 0.3s ease; }
+    .post-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important; }
+    .filter-btn { background: white; color: #4a5568; border: 1px solid #e2e8f0; padding: 5px 12px; border-radius: 20px; font-size: 0.8em; cursor: pointer; transition: all 0.2s ease; }
+    .filter-btn:hover { background: #f7fafc !important; border-color: #3182ce !important; color: #3182ce !important; }
+    .filter-btn.active { background: #3182ce !important; color: white !important; border-color: #3182ce !important; }
+    .filter-btn.active:hover { background: #2a69ac !important; color: white !important; box-shadow: 0 2px 5px rgba(49, 130, 206, 0.4); }
+    aside { display: flex; flex-direction: column; gap: 20px; position: sticky; top: 20px; height: fit-content; }
     @media (max-width: 768px) {
-        /* On casse la grille pour mettre la sidebar en dessous */
-        div[style*="display: grid"] {
-            grid-template-columns: 1fr !important;
-            gap: 20px !important;
-        }
-
-        aside {
-            position: static !important; /* Désactive le sticky sur mobile */
-            order: 2; /* Place la sidebar après les notifications */
-        }
-
-        /* Correction du container principal */
-        div[style*="max-width: 1100px"] {
-            margin: 10px auto !important; /* Centrage automatique */
-            padding: 0 15px !important;
-            max-width: 100% !important;
-        }
-
-        /* Ajustement des cartes pour les petits écrans */
-        .post-card {
-            margin-bottom: 0 !important;
-        }
+        div[style*="display: grid"] { grid-template-columns: 1fr !important; gap: 20px !important; }
+        aside { position: static !important; order: 2; }
+        div[style*="max-width: 1100px"] { margin: 10px auto !important; padding: 0 15px !important; max-width: 100% !important; }
+        .post-card { margin-bottom: 0 !important; }
     }
-
-    /* --- Spécifique iPhone SE (Écrans très étroits) --- */
-    @media (max-width: 380px) {
-        h2 { font-size: 1.3em !important; }
-        .post-card { padding: 12px !important; gap: 12px !important; }
-    }
+    @media (max-width: 380px) { h2 { font-size: 1.3em !important; } .post-card { padding: 12px !important; gap: 12px !important; } }
 </style>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const filters = document.querySelectorAll('.filter-btn');
         const notifs = document.querySelectorAll('.notif-item');
-
         filters.forEach(btn => {
             btn.addEventListener('click', () => {
-                // 1. Gérer l'apparence via les classes (On laisse le CSS gérer les couleurs)
-                filters.forEach(b => {
-                    b.classList.remove('active');
-                });
+                filters.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-
-                // 2. Récupérer la valeur du filtre (on nettoie les emojis pour être sûr)
                 const filterValue = btn.innerText.toLowerCase();
-
-                // 3. Filtrer les notifications
                 notifs.forEach(notif => {
                     const type = notif.getAttribute('data-type');
-
-                    if (filterValue.includes('toutes')) {
-                        notif.style.display = 'block';
-                    } else if (filterValue.includes('réactions') && type === 'reaction') {
-                        notif.style.display = 'block';
-                    } else if (filterValue.includes('avis') && type === 'avis') {
-                        notif.style.display = 'block';
-                    } else {
-                        notif.style.display = 'none';
-                    }
+                    if (filterValue.includes('toutes')) { notif.style.display = 'block'; }
+                    else if (filterValue.includes('réactions') && type === 'reaction') { notif.style.display = 'block'; }
+                    else if (filterValue.includes('avis') && type === 'avis') { notif.style.display = 'block'; }
+                    else { notif.style.display = 'none'; }
                 });
             });
         });

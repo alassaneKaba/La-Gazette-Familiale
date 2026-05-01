@@ -389,7 +389,7 @@
         });
     }
 
-    // --- GESTION DE L'UPLOAD ET PREVIEW ---
+    // --- GESTION DE l'UPLOAD ET PREVIEW ---
     let selectedFiles = [];
 
     function previewFiles() {
@@ -512,18 +512,43 @@
     updateLiveDates();
 
     window.addEventListener("load", function() {
-        const hash = window.location.hash;
+        const hash = window.location.hash; // Récupère par ex: #comment-45
         if (hash && hash.startsWith('#comment-')) {
-            const commentEl = document.querySelector(hash);
-            if (commentEl) {
-                const parentSection = commentEl.closest('[id^="comment-section-"]');
+            const targetComment = document.querySelector(hash);
+
+            if (targetComment) {
+                // 1. Ouvrir la section globale des commentaires du post
+                const parentSection = targetComment.closest('[id^="comment-section-"]');
                 if (parentSection) {
                     parentSection.style.display = "block";
+
+                    // 2. SI c'est une réponse, déplier le conteneur de réponses parent
+                    const repliesContainer = targetComment.closest('.replies-container');
+                    if (repliesContainer) {
+                        repliesContainer.style.display = "block";
+
+                        // Mettre à jour le bouton "Voir X réponses" pour afficher "Masquer"
+                        const parentCommentId = repliesContainer.id.replace('replies-', '');
+                        const btn = document.getElementById('btn-replies-' + parentCommentId);
+                        if (btn) {
+                            btn.querySelector('span').innerText = "Masquer";
+                            btn.querySelector('svg').style.transform = "rotate(180deg)";
+                        }
+                    }
+
+                    // 3. Faire défiler et surligner proprement
                     setTimeout(() => {
-                        commentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        commentEl.style.transition = "background 1s";
-                        commentEl.style.backgroundColor = "#fff3cd";
-                        setTimeout(() => { commentEl.style.backgroundColor = "transparent"; }, 3000);
+                        targetComment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                        // Surlignage de la bulle pour la repérer
+                        const contentBox = targetComment.querySelector('div[style*="background"]');
+                        if (contentBox) {
+                            contentBox.style.transition = "all 1s";
+                            contentBox.style.backgroundColor = "#fff3cd"; // Jaune d'accentuation
+                            setTimeout(() => {
+                                contentBox.style.backgroundColor = "#ffffff";
+                            }, 3000);
+                        }
                     }, 500);
                 }
             }

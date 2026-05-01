@@ -156,7 +156,7 @@ def delete_profile_ajax():
 @app.route("/")
 def home():
     with get_db() as db:
-        # 1. On récupère les posts
+        # 1. On récupère les posts avec leurs réactions globales
         posts_query = db.execute("""
             SELECT posts.*, users.avatar AS user_avatar,
                 (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='thumb') as thumbs,
@@ -165,17 +165,23 @@ def home():
             JOIN users ON posts.username = users.username
             ORDER BY posts.id DESC
         """).fetchall()
-        # Convertir en liste de dictionnaires pour pouvoir ajouter les médias
         posts = [dict(row) for row in posts_query]
-        # 2. Pour chaque post, on va chercher ses médias
+        # 2. On récupère les médias pour chaque post
         for post in posts:
             medias = db.execute("SELECT * FROM post_medias WHERE post_id = ?", (post['id'],)).fetchall()
-            post['medias'] = medias  # On ajoute la liste des médias au post
-        comments = db.execute('''
-            SELECT comments.*, users.avatar AS comm_avatar
+            post['medias'] = medias
+        # 3. CORRECTION : On récupère les commentaires AVEC le compte des likes
+        # On ajoute une sous-requête (SELECT COUNT(*)...) pour créer la colonne like_count
+        comments_query = db.execute('''
+            SELECT 
+                comments.*, 
+                users.avatar AS comm_avatar,
+                (SELECT COUNT(*) FROM comment_reactions WHERE comment_id = comments.id) as like_count
             FROM comments 
             JOIN users ON comments.username = users.username
+            ORDER BY comments.created_at ASC
         ''').fetchall()
+        comments = [dict(row) for row in comments_query]
     return render_template("home.html", posts=posts, comments=comments)
 
 
@@ -526,6 +532,47 @@ def add_comment(post_id):
     })
 
 
+@app.route('/react_comment/<int:comment_id>', methods=['POST'])
+def react_comment(comment_id):
+    # 1. Vérification de la session
+    if 'user' not in session or 'user_id' not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    user_id = session.get('user_id')
+    db = get_db()
+    try:
+        # 2. Vérifier si la réaction existe déjà
+        already_liked = db.execute(
+            "SELECT 1 FROM comment_reactions WHERE user_id = ? AND comment_id = ?",
+            (user_id, comment_id)
+        ).fetchone()
+        if already_liked:
+            # On retire le like
+            db.execute(
+                "DELETE FROM comment_reactions WHERE user_id = ? AND comment_id = ?",
+                (user_id, comment_id)
+            )
+        else:
+            # On ajoute le like
+            db.execute(
+                "INSERT INTO comment_reactions (user_id, comment_id) VALUES (?, ?)",
+                (user_id, comment_id)
+            )
+        db.commit()
+        # 3. Récupérer le nouveau total
+        count_row = db.execute(
+            "SELECT COUNT(*) FROM comment_reactions WHERE comment_id = ?",
+            (comment_id,)
+        ).fetchone()
+        total_likes = count_row[0] if count_row else 0
+        return jsonify({
+            "status": "success",
+            "total": total_likes
+        })
+    except Exception as e:
+        print(f"Erreur lors du like commentaire: {e}")
+        return jsonify({"error": "database_error"}), 500
+
+
 @app.route("/user/<username>")
 @login_required
 def profile(username):
@@ -763,6 +810,13 @@ def init_db():
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Ajout de cette ligne
                 FOREIGN KEY (post_id) REFERENCES posts (id),
                 FOREIGN KEY (parent_id) REFERENCES comments (id) ON DELETE CASCADE
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS comment_reactions (
+                user_id INTEGER,
+                comment_id INTEGER,
+                PRIMARY KEY (user_id, comment_id)
             )
         """)
         db.execute(

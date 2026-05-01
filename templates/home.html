@@ -17,6 +17,10 @@
                     {{ c['created_at'] | relative_time }}
                 </span>
                 {% if session.get("user") %}
+                <button onclick="reactComment({{ c['id'] }}, this)"
+                        style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0; display:inline-flex; align-items:center; gap:3px;">
+                    👍 <span class="comm-like-count">{{ c['like_count'] if c['like_count'] else 0 }}</span> J'aime
+                </button>
                 <button onclick="showReplyForm({{ c['id'] }}, {{ post_id }}, '{{ c['username'] }}')"
                         style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">
                     Répondre
@@ -27,15 +31,18 @@
     </div>
 
     {% set replies = all_comments | selectattr('parent_id', 'equalto', c['id']) | list %}
-    {% if replies | length > 0 %}
-    <button id="btn-replies-{{ c['id'] }}" onclick="toggleReplies({{ c['id'] }})"
-            style="background:none; border:none; color:#65676b; font-size:0.85em; font-weight:bold; cursor:pointer; margin-left:45px; margin-top:5px; padding:0; display:flex; align-items:center; gap:5px;">
-        <span>Voir {{ replies | length }} réponse{{ 's' if replies|length > 1 else '' }}</span>
-        <svg class="arrow-icon" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-    </button>
-    {% endif %}
 
-    <div id="replies-{{ c['id'] }}" class="replies-container" style="display: none;">
+    <div id="btn-container-{{ c['id'] }}">
+        {% if replies | length > 0 %}
+        <button id="btn-replies-{{ c['id'] }}" onclick="toggleReplies({{ c['id'] }})"
+                style="background:none; border:none; color:#65676b; font-size:0.85em; font-weight:bold; cursor:pointer; margin-left:45px; margin-top:5px; padding:0; display:flex; align-items:center; gap:5px;">
+            <span>Voir {{ replies | length }} réponse{{ 's' if replies|length > 1 else '' }}</span>
+            <svg class="arrow-icon" viewBox="0 0 20 20" style="width:12px; height:12px; transition: transform 0.2s; fill: currentColor;"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </button>
+        {% endif %}
+    </div>
+
+    <div id="replies-{{ c['id'] }}" class="replies-container" style="display: none; margin-left: 30px; margin-top: 8px; border-left: 1px dashed #cbd5e0; padding-left: 12px;">
         {% for r in replies %}
             {{ render_comment(r, post_id, all_comments) }}
         {% endfor %}
@@ -47,8 +54,6 @@
 <style>
     .zoomable { max-width: 100%; max-height: 500px; display: block; margin: 0 auto; transition: transform 0.2s; object-fit: contain; }
     .zoomable:hover { opacity: 0.9; }
-    .replies-container { margin-left: 30px; margin-top: 8px; border-left: 1px dashed #cbd5e0; padding-left: 12px; }
-    .arrow-icon { width: 12px; height: 12px; transition: transform 0.2s; fill: currentColor; }
     .icon-btn-send { background: #1877f2; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; transition: background 0.2s; }
     .icon-btn-send:hover { background: #166fe5; }
     .icon-btn-cancel { background: #e4e6eb; color: #4b4b4b; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
@@ -177,7 +182,6 @@
 <script>
     function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').style.display = 'flex'; }
 
-    // CORRECTION : Ferme proprement et replie tout
     function toggleComments(postId) {
         const section = document.getElementById('comment-section-' + postId);
         const isOpening = section.style.display === "none";
@@ -186,15 +190,14 @@
             section.style.display = "block";
         } else {
             section.style.display = "none";
-            // Replier toutes les réponses à l'intérieur pour la prochaine ouverture
-            const allReplies = section.querySelectorAll('.replies-container');
-            allReplies.forEach(div => {
-                div.style.display = "none";
-                const commentId = div.id.replace('replies-', '');
+            // MODIF : On replie proprement tous les sous-commentaires à la fermeture
+            section.querySelectorAll('.replies-container').forEach(repliesDiv => {
+                repliesDiv.style.display = "none";
+                const commentId = repliesDiv.id.replace('replies-', '');
                 const btn = document.getElementById('btn-replies-' + commentId);
                 if (btn) {
-                    const count = div.querySelectorAll(':scope > div[id^="comment-container-"]').length;
-                    btn.querySelector('span').innerText = `Voir ${count} réponse${count > 1 ? 's' : ''}`;
+                    const count = repliesDiv.children.length;
+                    btn.querySelector('span').innerText = (count > 0) ? `Voir les réponses` : "";
                     btn.querySelector('svg').style.transform = "rotate(0deg)";
                 }
             });
@@ -206,49 +209,43 @@
         const btn = document.getElementById('btn-replies-' + commentId);
         const isHidden = repliesDiv.style.display === "none";
         repliesDiv.style.display = isHidden ? "block" : "none";
-        btn.querySelector('span').innerText = isHidden ? "Masquer" : `Voir ${repliesDiv.children.length} réponse${repliesDiv.children.length > 1 ? 's' : ''}`;
+        btn.querySelector('span').innerText = isHidden ? "Masquer" : `Voir les réponses`;
         btn.querySelector('svg').style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
     }
 
-    function react(postId, type) {
-        fetch("/react/" + postId + "/" + type, {
-            method: "POST",
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(res => {
-            // On redirige si c'est 401 (Unauthorized) OU 403 (Forbidden)
-            if (res.status === 401 || res.status === 403 || res.redirected) {
-                window.location.href = "/login";
-                return;
-            }
-            return res.json();
-        })
+    function reactComment(commentId, btnElement) {
+        fetch("/react_comment/" + commentId, { method: "POST", headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => (res.status === 401 || res.status === 403 || res.redirected) ? (window.location.href = "/login") : res.json())
         .then(data => {
-            if (data && data.thumb !== undefined) {
-                document.getElementById("thumbs-" + postId).innerText = data.thumb;
+            if (data && data.total !== undefined) {
+                btnElement.querySelector('.comm-like-count').innerText = data.total;
+                btnElement.style.color = (btnElement.style.color === "rgb(24, 119, 242)") ? "#65676b" : "#1877f2";
             }
-        })
-        .catch(err => console.error("Erreur de réaction:", err));
+        });
+    }
+
+    function react(postId, type) {
+        fetch("/react/" + postId + "/" + type, { method: "POST", headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => (res.status === 401 || res.status === 403 || res.redirected) ? (window.location.href = "/login") : res.json())
+        .then(data => { if (data && data.thumb !== undefined) document.getElementById("thumbs-" + postId).innerText = data.thumb; });
     }
 
     function showReplyForm(commentId, postId, mention) {
         const existingForm = document.getElementById('reply-form-' + commentId);
         if (existingForm) { existingForm.remove(); return; }
         let container = document.getElementById('comment-container-' + commentId);
-        let formHtml = `
+        container.insertAdjacentHTML('beforeend', `
             <form id="reply-form-${commentId}" onsubmit="addReply(event, ${postId}, ${commentId})" style="display: flex; gap: 8px; margin: 10px 0 10px 45px; align-items: center;">
-                <input id="reply-input-${commentId}" value="@${mention} " placeholder="Répondre..." style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 20px; padding: 6px 15px; outline: none; font-size: 0.85em;">
+                <input id="reply-input-${commentId}" value="@${mention} " style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 20px; padding: 6px 15px; outline: none; font-size: 0.85em;">
                 <button type="submit" class="icon-btn-send">➤</button>
                 <button type="button" onclick="this.parentElement.remove()" class="icon-btn-cancel">✕</button>
-            </form>`;
-        container.insertAdjacentHTML('beforeend', formHtml);
+            </form>`);
         document.getElementById('reply-input-' + commentId).focus();
     }
 
     function addReply(event, postId, parentId) {
         event.preventDefault();
         let input = document.getElementById("reply-input-" + parentId);
-        if (!input.value.trim()) return;
         fetch("/comment/" + postId, {
             method: "POST",
             headers: {"Content-Type": "application/x-www-form-urlencoded"},
@@ -259,7 +256,17 @@
             if (data && data.username) {
                 let repliesDiv = document.getElementById("replies-" + parentId);
                 repliesDiv.style.display = "block";
-                let newHtml = `
+
+                let btnContainer = document.getElementById("btn-container-" + parentId);
+                if (!document.getElementById('btn-replies-' + parentId)) {
+                    btnContainer.innerHTML = `<button id="btn-replies-${parentId}" onclick="toggleReplies(${parentId})" style="background:none; border:none; color:#65676b; font-size:0.85em; font-weight:bold; cursor:pointer; margin-left:45px; margin-top:5px; padding:0; display:flex; align-items:center; gap:5px;"><span>Masquer</span><svg viewBox="0 0 20 20" style="width:12px; height:12px; transition: transform 0.2s; fill: currentColor; transform: rotate(180deg);"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg></button>`;
+                } else {
+                    const btn = document.getElementById('btn-replies-' + parentId);
+                    btn.querySelector('span').innerText = "Masquer";
+                    btn.querySelector('svg').style.transform = "rotate(180deg)";
+                }
+
+                repliesDiv.insertAdjacentHTML('beforeend', `
                 <div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
                     <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; align-items: flex-start;">
                         <img src="/static/avatars/{{ session.get('user_avatar', 'default.png') }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
@@ -270,15 +277,14 @@
                             </div>
                             <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
                                 <span style="font-size: 0.7em; color: #718096;">À l'instant</span>
+                                <button onclick="reactComment(${data.comment_id}, this)" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0; display:inline-flex; align-items:center; gap:3px;">👍 <span class="comm-like-count">0</span> J'aime</button>
                                 <button onclick="showReplyForm(${data.comment_id}, ${postId}, '${data.username}')" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
                             </div>
                         </div>
                     </div>
-                    <div id="replies-${data.comment_id}" class="replies-container" style="display:none;"></div>
-                </div>`;
-                repliesDiv.insertAdjacentHTML('beforeend', newHtml);
-                let btn = document.getElementById('btn-replies-' + parentId);
-                if (btn) { btn.querySelector('span').innerText = "Masquer"; btn.querySelector('svg').style.transform = "rotate(180deg)"; }
+                    <div id="btn-container-${data.comment_id}"></div>
+                    <div id="replies-${data.comment_id}" class="replies-container" style="display:none; margin-left: 30px; margin-top: 8px; border-left: 1px dashed #cbd5e0; padding-left: 12px;"></div>
+                </div>`);
                 document.getElementById('reply-form-' + parentId).remove();
                 document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
             }
@@ -288,17 +294,12 @@
     function addComment(event, postId) {
         event.preventDefault();
         let input = document.getElementById("comment-input-" + postId);
-        if (!input.value.trim()) return;
-        fetch("/comment/" + postId, {
-            method: "POST",
-            headers: {"Content-Type": "application/x-www-form-urlencoded"},
-            body: "content=" + encodeURIComponent(input.value)
-        })
+        fetch("/comment/" + postId, { method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}, body: "content=" + encodeURIComponent(input.value) })
         .then(res => res.json())
         .then(data => {
             if (data && data.username) {
-                let div = document.getElementById("comments-" + postId);
-                let html = `<div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
+                document.getElementById("comments-" + postId).insertAdjacentHTML('beforeend', `
+                <div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
                     <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; align-items: flex-start;">
                         <img src="/static/avatars/{{ session.get('user_avatar', 'default.png') }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                         <div style="display: flex; flex-direction: column;">
@@ -308,41 +309,19 @@
                             </div>
                             <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
                                 <span style="font-size: 0.7em; color: #718096;">À l'instant</span>
+                                <button onclick="reactComment(${data.comment_id}, this)" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0; display:inline-flex; align-items:center; gap:3px;">👍 <span class="comm-like-count">0</span> J'aime</button>
                                 <button onclick="showReplyForm(${data.comment_id}, ${postId}, '${data.username}')" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
                             </div>
                         </div>
                     </div>
-                    <div id="replies-${data.comment_id}" class="replies-container" style="display:none;"></div>
-                </div>`;
-                div.insertAdjacentHTML('beforeend', html);
+                    <div id="btn-container-${data.comment_id}"></div>
+                    <div id="replies-${data.comment_id}" class="replies-container" style="display:none; margin-left: 30px; margin-top: 8px; border-left: 1px dashed #cbd5e0; padding-left: 12px;"></div>
+                </div>`);
                 input.value = "";
                 document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
             }
         });
     }
-
-    let selectedFiles = [];
-    function previewFiles() { const input = document.getElementById('image-input'); selectedFiles = [...selectedFiles, ...Array.from(input.files)]; renderPreview(); }
-    function renderPreview() {
-        const grid = document.getElementById('preview-grid');
-        const container = document.getElementById('preview-container');
-        grid.innerHTML = "";
-        if (selectedFiles.length === 0) { container.style.display = "none"; return; }
-        container.style.display = "block";
-        selectedFiles.forEach((file, index) => {
-            const div = document.createElement('div');
-            div.style.cssText = "position: relative; width: 100px; height: 100px;";
-            const reader = new FileReader();
-            reader.onload = e => {
-                let media = file.type.startsWith('video/') ? `<video src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"></video>` : `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">`;
-                div.innerHTML = `${media}<button type="button" onclick="removeSingleFile(${index})" style="position:absolute; top:-5px; right:-5px; background:#e53e3e; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px;">✕</button>`;
-            };
-            reader.readAsDataURL(file);
-            grid.appendChild(div);
-        });
-    }
-    function removeSingleFile(index) { selectedFiles.splice(index, 1); renderPreview(); }
-    function removeFiles() { selectedFiles = []; renderPreview(); }
 
     function moveSlide(postId, direction) {
         const container = document.getElementById(`carousel-${postId}`);
@@ -354,34 +333,33 @@
         container.querySelector('.current').innerText = activeIdx + 1;
     }
 
-    // CORRECTION : Clic extérieur robuste qui garde l'onglet ouvert si on clique dans la carte
     document.addEventListener('click', function(event) {
-        const sections = document.querySelectorAll('[id^="comment-section-"]');
-        sections.forEach(section => {
-            if (section.style.display === "none") return;
-            const postCard = section.closest('.post-card');
-            if (!postCard.contains(event.target)) {
+        document.querySelectorAll('[id^="comment-section-"]').forEach(section => {
+            if (section.style.display !== "none" && !section.closest('.post-card').contains(event.target)) {
+                // On utilise la fonction toggleComments pour profiter de la réinitialisation
                 toggleComments(section.id.replace('comment-section-', ''));
             }
         });
     });
 
-    window.addEventListener("load", function() {
-        const hash = window.location.hash;
-        if (hash && hash.startsWith('#comment-')) {
-            const target = document.querySelector(hash);
-            if (target) {
-                target.closest('[id^="comment-section-"]').style.display = "block";
-                let p = target.closest('.replies-container');
-                while(p) {
-                    p.style.display = "block";
-                    let b = document.getElementById('btn-replies-' + p.id.replace('replies-', ''));
-                    if(b) { b.querySelector('span').innerText = "Masquer"; b.querySelector('svg').style.transform = "rotate(180deg)"; }
-                    p = p.parentElement.closest('.replies-container');
-                }
-                setTimeout(() => { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); const box = target.querySelector('div[style*="background"]'); if (box) { box.style.backgroundColor = "#fff3cd"; setTimeout(() => box.style.backgroundColor = "white", 3000); }}, 500);
-            }
-        }
-    });
+    let selectedFiles = [];
+    function previewFiles() { const input = document.getElementById('image-input'); selectedFiles = [...selectedFiles, ...Array.from(input.files)]; renderPreview(); }
+    function renderPreview() {
+        const grid = document.getElementById('preview-grid');
+        const container = document.getElementById('preview-container');
+        grid.innerHTML = "";
+        if (selectedFiles.length === 0) { container.style.display = "none"; return; }
+        container.style.display = "block";
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                let media = file.type.startsWith('video/') ? `<video src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"></video>` : `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">`;
+                grid.insertAdjacentHTML('beforeend', `<div style="position: relative; width: 100px; height: 100px;">${media}<button type="button" onclick="removeSingleFile(${index})" style="position:absolute; top:-5px; right:-5px; background:#e53e3e; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px;">✕</button></div>`);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+    function removeSingleFile(index) { selectedFiles.splice(index, 1); renderPreview(); }
+    function removeFiles() { selectedFiles = []; renderPreview(); }
 </script>
 {% endblock %}

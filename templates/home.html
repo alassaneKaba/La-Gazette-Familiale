@@ -7,12 +7,12 @@
     <div id="comment-{{ c['id'] }}" style="display: flex; gap: 10px; align-items: flex-start;">
         <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
              style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-        <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; flex-direction: column; max-width: 85%;">
             <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                 <strong style="font-size: 0.85em; display: block; color: #1c1e21;">{{ c['username'] }}</strong>
-                <span style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
+                <span id="comment-text-{{ c['id'] }}" style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
             </div>
-            <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
+            <div style="display: flex; gap: 12px; margin-top: 2px; margin-left: 10px; align-items: center;">
                 <span class="live-date" data-time="{{ c['created_at'] }}" style="font-size: 0.7em; color: #718096;">
                     {{ c['created_at'] | relative_time }}
                 </span>
@@ -25,6 +25,12 @@
                         style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">
                     Répondre
                 </button>
+
+                {# AJOUT : Modifier / Supprimer (uniquement pour l'auteur) #}
+                {% if session.get("user") == c['username'] %}
+                <button onclick="editCommentUI({{ c['id'] }}, event)" style="background:none; border:none; color:#1877f2; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Modifier</button>
+                <button onclick="deleteComment({{ c['id'] }}, {{ post_id }})" style="background:none; border:none; color:#e53e3e; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Supprimer</button>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -60,7 +66,6 @@
     .icon-btn-cancel:hover { background: #d8dadf; }
     .action-btn:hover { background: #f2f2f2 !important; border-radius: 5px; }
 
-    /* ÉVOLUTION : Slider vertical pour les commentaires */
     .comments-scroll-container {
         max-height: 400px;
         overflow-y: auto;
@@ -170,7 +175,6 @@
         </div>
 
         <div id="comment-section-{{ post['id'] }}" style="display: none; background: #f0f2f5; padding: 15px 20px; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;">
-            {# ÉVOLUTION : Conteneur avec scroll #}
             <div id="comments-{{ post['id'] }}" class="comments-scroll-container">
                 {% for c in comments if c['post_id'] == post['id'] and not c['parent_id'] %}
                     {{ render_comment(c, post['id'], comments) }}
@@ -201,7 +205,6 @@
 
         if (isOpening) {
             section.style.display = "block";
-            // ÉVOLUTION : Auto-scroll vers le bas à l'ouverture pour voir les derniers messages
             const scrollDiv = document.getElementById("comments-" + postId);
             if(scrollDiv) scrollDiv.scrollTop = scrollDiv.scrollHeight;
         } else {
@@ -259,6 +262,126 @@
         document.getElementById('reply-input-' + commentId).focus();
     }
 
+    // AJOUT : Fonctions Suppression et Edition
+    // Exemple avec SweetAlert2 au lieu de confirm()
+    function deleteComment(commentId, postId) {
+        Swal.fire({
+            title: 'Supprimer ce commentaire ?',
+            text: "Cette action est définitive.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e53e3e',
+            cancelButtonColor: '#65676b',
+            confirmButtonText: 'Supprimer',
+            cancelButtonText: 'Annuler',
+            reverseButtons: true // Met "Annuler" à gauche, plus naturel sur mobile
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Ton code fetch initial s'exécute ici
+                fetch("/delete_comment/" + commentId, { method: "POST" })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById("comment-container-" + commentId);
+                        if (container) {
+                            container.style.opacity = "0";
+                            setTimeout(() => {
+                                container.remove();
+                                const countElem = document.getElementById("comment-count-" + postId);
+                                if (countElem) {
+                                    countElem.innerText = Math.max(0, parseInt(countElem.innerText) - 1);
+                                }
+                            }, 300);
+                        }
+                        // Petit message de confirmation discret
+                        Swal.fire({
+                            title: 'Supprimé !',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    function editCommentUI(commentId, event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation(); // Empêche de fermer la section de commentaires
+        }
+
+        const textSpan = document.getElementById("comment-text-" + commentId);
+        const oldText = textSpan.innerText;
+
+        if (document.getElementById("edit-form-" + commentId)) return;
+
+        const editHtml = `
+            <div id="edit-form-${commentId}" style="margin-top: 5px; width: 100%;" onclick="event.stopPropagation()">
+                <input type="text" id="edit-input-${commentId}"
+                       style="width: 100%; padding: 8px 12px; border: 1px solid #1877f2; border-radius: 15px; outline: none; font-size: 0.95em;"
+                       value="${oldText.replace(/"/g, '&quot;')}">
+                <div style="margin-top: 5px; font-size: 0.8em; display: flex; gap: 10px;">
+                    <button type="button" onclick="saveEdit(${commentId}, event)" style="color: #1877f2; background:none; border:none; font-weight:bold; cursor:pointer; padding:0;">Enregistrer</button>
+                    <button type="button" onclick="cancelEdit(${commentId}, event)" style="color: #65676b; background:none; border:none; cursor:pointer; padding:0;">Annuler</button>
+                </div>
+            </div>
+        `;
+
+        textSpan.style.display = "none";
+        textSpan.insertAdjacentHTML('afterend', editHtml);
+
+        const input = document.getElementById("edit-input-" + commentId);
+        input.focus();
+
+        input.onkeydown = function(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                saveEdit(commentId, e);
+            }
+            if (e.key === "Escape") {
+                cancelEdit(commentId, e);
+            }
+        };
+    }
+
+    function cancelEdit(commentId, event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const form = document.getElementById("edit-form-" + commentId);
+        if (form) form.remove();
+        const textSpan = document.getElementById("comment-text-" + commentId);
+        if (textSpan) textSpan.style.display = "inline";
+    }
+
+    function saveEdit(commentId, event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const input = document.getElementById("edit-input-" + commentId);
+        const newContent = input.value.trim();
+
+        if (newContent === "") return;
+
+        let formData = new FormData();
+        formData.append('content', newContent);
+
+        fetch("/edit_comment/" + commentId, { method: "POST", body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const textSpan = document.getElementById("comment-text-" + commentId);
+                textSpan.innerText = data.content;
+                cancelEdit(commentId);
+            }
+        });
+    }
+
     function addReply(event, postId, parentId) {
         event.preventDefault();
         let input = document.getElementById("reply-input-" + parentId);
@@ -289,12 +412,14 @@
                         <div style="display: flex; flex-direction: column;">
                             <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                                 <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
-                                <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
+                                <span id="comment-text-${data.comment_id}" style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
                             </div>
                             <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
                                 <span style="font-size: 0.7em; color: #718096;">À l'instant</span>
                                 <button onclick="reactComment(${data.comment_id}, this)" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0; display:inline-flex; align-items:center; gap:3px;">👍 <span class="comm-like-count">0</span> J'aime</button>
                                 <button onclick="showReplyForm(${data.comment_id}, ${postId}, '${data.username}')" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
+                                <button onclick="editCommentUI(${data.comment_id})" style="background:none; border:none; color:#1877f2; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Modifier</button>
+                                <button onclick="deleteComment(${data.comment_id}, ${postId})" style="background:none; border:none; color:#e53e3e; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Supprimer</button>
                             </div>
                         </div>
                     </div>
@@ -303,7 +428,6 @@
                 </div>`);
                 document.getElementById('reply-form-' + parentId).remove();
                 document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
-                // ÉVOLUTION : Auto-scroll vers la nouvelle réponse
                 const scrollDiv = document.getElementById("comments-" + postId);
                 scrollDiv.scrollTop = scrollDiv.scrollHeight;
             }
@@ -325,12 +449,14 @@
                         <div style="display: flex; flex-direction: column;">
                             <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                                 <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
-                                <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
+                                <span id="comment-text-${data.comment_id}" style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
                             </div>
                             <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
                                 <span style="font-size: 0.7em; color: #718096;">À l'instant</span>
                                 <button onclick="reactComment(${data.comment_id}, this)" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0; display:inline-flex; align-items:center; gap:3px;">👍 <span class="comm-like-count">0</span> J'aime</button>
                                 <button onclick="showReplyForm(${data.comment_id}, ${postId}, '${data.username}')" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
+                                <button onclick="editCommentUI(${data.comment_id})" style="background:none; border:none; color:#1877f2; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Modifier</button>
+                                <button onclick="deleteComment(${data.comment_id}, ${postId})" style="background:none; border:none; color:#e53e3e; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Supprimer</button>
                             </div>
                         </div>
                     </div>
@@ -339,7 +465,6 @@
                 </div>`);
                 input.value = "";
                 document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
-                // ÉVOLUTION : Auto-scroll vers le bas pour voir son propre commentaire
                 commentsDiv.scrollTop = commentsDiv.scrollHeight;
             }
         });
@@ -388,12 +513,10 @@
         if (hash && hash.startsWith('#comment-')) {
             const commentId = hash.replace('#comment-', '');
             const targetComment = document.getElementById('comment-' + commentId);
-
             if (targetComment) {
                 const postCard = targetComment.closest('.post-card');
                 const commentSection = postCard.querySelector('[id^="comment-section-"]');
                 if (commentSection) commentSection.style.display = "block";
-
                 let parent = targetComment.parentElement;
                 while (parent) {
                     if (parent.classList.contains('replies-container')) {
@@ -407,7 +530,6 @@
                     }
                     parent = parent.parentElement;
                 }
-
                 setTimeout(() => {
                     targetComment.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     const box = targetComment.querySelector('div[style*="background"]');

@@ -688,14 +688,49 @@ def delete_account():
 def delete_post(post_id):
     if "user" not in session:
         return redirect(url_for("login"))
-
     with get_db() as db:
         # On vérifie que c'est bien l'auteur qui supprime
         db.execute("DELETE FROM posts WHERE id = ? AND username = ?", (post_id, session["user"]))
         db.commit()
-
     # C'est cette ligne qui évite le "Not Found"
     return redirect(url_for("home"))
+
+
+@app.route('/delete_comment/<int:comment_id>', methods=['POST'])
+@login_required
+def delete_comment(comment_id):
+    db = get_db()
+    username = session.get('user')
+    # On vérifie que l'utilisateur est bien l'auteur
+    comment = db.execute("SELECT username FROM comments WHERE id = ?", (comment_id,)).fetchone()
+    if not comment or comment['username'] != username:
+        return jsonify({"error": "unauthorized"}), 403
+    try:
+        # Nettoyage de la base de données
+        db.execute("DELETE FROM comment_reactions WHERE comment_id = ?", (comment_id,))
+        db.execute("DELETE FROM notifications WHERE comment_id = ?", (comment_id,))
+        # On supprime aussi les réponses (si c'est un parent)
+        db.execute("DELETE FROM comments WHERE parent_id = ?", (comment_id,))
+        # Enfin, on supprime le commentaire lui-même
+        db.execute("DELETE FROM comments WHERE id = ?", (comment_id,))
+        db.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/edit_comment/<int:comment_id>', methods=['POST'])
+@login_required
+def edit_comment(comment_id):
+    db = get_db()
+    username = session.get('user')
+    new_content = request.form.get('content')
+    comment = db.execute("SELECT username FROM comments WHERE id = ?", (comment_id,)).fetchone()
+    if not comment or comment['username'] != username:
+        return jsonify({"error": "unauthorized"}), 403
+    db.execute("UPDATE comments SET content = ? WHERE id = ?", (new_content, comment_id))
+    db.commit()
+    return jsonify({"success": True, "content": new_content})
 
 
 @app.route("/logout")

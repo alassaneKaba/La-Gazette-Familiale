@@ -5,133 +5,49 @@
     /* --- VOS STYLES EXISTANTS (CONSERVÉS) --- */
     .nav-container { display: flex; justify-content: center; margin: 20px 0; grid-column: 1 / -1; }
     .modern-nav { display: flex; background: #e2e8f0; padding: 4px; border-radius: 12px; width: fit-content; }
+    /* ... (Reste de tes styles identiques) ... */
     .nav-item-btn { padding: 8px 20px; border: none; background: none; color: #718096; font-weight: 600; cursor: pointer; border-radius: 8px; transition: 0.2s; }
     .nav-item-btn.active { color: #3182ce; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-
-    .profile-header-card {
-        background: white;
-        border-radius: 20px;
-        overflow: hidden;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        border: 1px solid #edf2f7;
-        grid-column: 1 / -1;
-    }
-
-    /* --- COUVERTURE --- */
+    .profile-header-card { background: white; border-radius: 20px; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #edf2f7; grid-column: 1 / -1; }
     .cover-wrapper { height: 300px; width: 100%; background-color: #000; position: relative; overflow: hidden; }
-    .cover-bg-blur {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background-image: url('{{ url_for("static", filename="avatars/" + user.cover) if user.cover else "" }}');
-        background-size: cover; background-position: center;
-        filter: blur(1px) brightness(0.5); transform: scale(1.2); z-index: 1;
-    }
-    .cover-main-img {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background-image: url('{{ url_for("static", filename="avatars/" + user.cover) if user.cover else "" }}');
-        background-size: contain; background-position: center; background-repeat: no-repeat;
-        z-index: 2; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));
-    }
-
+    .cover-bg-blur { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('{{ url_for("static", filename="avatars/" + user.cover) if user.cover else "" }}'); background-size: cover; background-position: center; filter: blur(1px) brightness(0.5); transform: scale(1.2); z-index: 1; }
+    .cover-main-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('{{ url_for("static", filename="avatars/" + user.cover) if user.cover else "" }}'); background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 2; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3)); }
     .avatar-container { width: 150px; height: 150px; margin: -75px auto 10px auto; position: relative; z-index: 5; }
     .profile-avatar-img { width: 100%; height: 100%; border-radius: 50%; border: 5px solid white; object-fit: cover; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-
-    .profile-stats {
-        display: flex;
-        justify-content: center;
-        gap: 30px;
-        margin: 5px 0;
-        padding: 5px 0;
-    }
+    .profile-stats { display: flex; justify-content: center; gap: 30px; margin: 5px 0; padding: 5px 0; }
     .stat-box { text-align: center; }
     .stat-value { display: block; font-size: 1.2em; font-weight: 800; color: #2d3748; }
     .stat-label { font-size: 0.85em; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    .profile-bio {
-        max-width: 500px;
-        margin: 0 auto 10px auto;
-        color: #4a5568;
-        font-size: 0.95em;
-        line-height: 1.4;
-        padding: 0 20px;
-        word-wrap: break-word;       /* Pour les anciens navigateurs */
-        overflow-wrap: break-word;   /* Pour les navigateurs modernes */
-        white-space: pre-line;       /* Pour conserver les retours à la ligne manuels */
-    }
-
-    #profile-username {
-        margin: 0px 0 10px 0 !important; /* Force une petite marge */
-    }
-
-
-    .edit-profile-btn {
-        padding: 8px 25px;
-        border-radius: 20px;
-        border: 1px solid #e2e8f0;
-        background: white;
-        font-weight: 600;
-        color: #4a5568;
-        cursor: pointer;
-        transition: 0.3s;
-        margin-bottom: 10px;
-    }
+    .profile-bio { max-width: 500px; margin: 0 auto 10px auto; color: #4a5568; font-size: 0.95em; line-height: 1.4; padding: 0 20px; word-wrap: break-word; overflow-wrap: break-word; white-space: pre-line; }
+    #profile-username { margin: 0px 0 10px 0 !important; }
+    .edit-profile-btn { padding: 8px 25px; border-radius: 20px; border: 1px solid #e2e8f0; background: white; font-weight: 600; color: #4a5568; cursor: pointer; transition: 0.3s; margin-bottom: 10px; }
     .edit-profile-btn:hover { background: #f7fafc; border-color: #cbd5e0; }
-
-    /* --- FLUX & SLIDER --- */
     .post-card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; border: 1px solid #edf2f7; width: 100%; max-width: 550px; }
     .media-slider-container { position: relative; width: 100%; margin-top: 15px; border-radius: 12px; overflow: hidden; background: #000; }
     .media-slider { display: flex; transition: transform 0.4s ease-in-out; }
     .slider-item { min-width: 100%; display: flex; justify-content: center; align-items: center; background: #000; }
     .slider-item img, .slider-item video { max-width: 100%; max-height: 500px; display: block; }
-    .slider-btn {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        background: #3182ce;
-        color: white;
-        border: none;
-        padding: 12px 18px;
-        cursor: pointer;
-        z-index: 20;
-        border-radius: 50%;
-        font-weight: bold;
-        transition: 0.3s;
-    }
+    .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: #3182ce; color: white; border: none; padding: 12px 18px; cursor: pointer; z-index: 20; border-radius: 50%; font-weight: bold; transition: 0.3s; }
     .slider-btn:hover { background: #2a69ac; scale: 1.1; }
-
     .prev-btn { left: 15px !important; }
     .next-btn { right: 15px !important; }
     .comment-area { margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 12px; display: none; }
     .comment-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
-
-    /* --- MODALE --- */
-    .modal-overlay {
-        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.6); z-index: 1000; backdrop-filter: blur(4px);
-        align-items: center; justify-content: center;
-    }
-    .modal-card {
-        background: white; border-radius: 20px; width: 90%; max-width: 450px;
-        padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideUp 0.3s ease-out;
-    }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+    .modal-card { background: white; border-radius: 20px; width: 90%; max-width: 450px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideUp 0.3s ease-out; }
     @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .close-modal { font-size: 1.5em; cursor: pointer; color: #a0aec0; }
-
     .form-group { margin-bottom: 15px; text-align: left; }
     .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: #4a5568; }
-    .form-group input, .form-group textarea {
-        width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 10px; font-family: inherit;
-    }
-
+    .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 10px; font-family: inherit; }
     .modal-actions { display: flex; justify-content: space-between; margin-top: 25px; gap: 10px; }
     .save-btn { background: #3182ce; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; flex: 1; }
     .delete-account-btn { background: #fff; color: #e53e3e; border: 1px solid #feb2b2; padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; }
-
     * { box-sizing: border-box; }
 </style>
 
+{# --- CONTENU HTML (CONSERVÉ) --- #}
 <div class="main-container">
     <div class="profile-header-card">
         <div class="cover-wrapper">
@@ -197,16 +113,13 @@
                             <img src="{{ url_for('static', filename='avatars/' + (post.user_avatar if post.user_avatar else 'default.png')) }}" class="comment-avatar">
                             <strong style="color: #2d3748;">{{ post.username }}</strong>
                         </div>
-
                         <p style="color: #4a5568; line-height: 1.5;">{{ post.content }}</p>
-
                         {% if post.medias %}
                         <div class="media-slider-container">
                             {% if post.medias|length > 1 %}
                                 <button class="slider-btn prev-btn" onclick="moveSlider('{{ post.id }}', -1)">&#10094;</button>
                                 <button class="slider-btn next-btn" onclick="moveSlider('{{ post.id }}', 1)">&#10095;</button>
                             {% endif %}
-
                             <div id="slider-{{ post.id }}" class="media-slider" data-index="0">
                                 {% for media in post.medias %}
                                 <div class="slider-item">
@@ -220,14 +133,12 @@
                             </div>
                         </div>
                         {% endif %}
-
                         <div style="display: flex; justify-content: space-between; margin-top: 15px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
                             <span style="font-weight: 700; color: #4a5568;">👍 {{ post.thumbs or 0 }}</span>
                             <span style="color: #3182ce; cursor: pointer; font-weight: 700;" onclick="toggleComments('{{ post.id }}')">
                                 💬 {{ post.comments|length }}
                             </span>
                         </div>
-
                         <div id="comments-{{ post.id }}" class="comment-area">
                             {% for comment in post.comments %}
                             <div class="comment-item" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
@@ -249,7 +160,6 @@
                 {% endif %}
             </div>
         </div>
-
         <div id="view-grid" style="display: none;">
             {% if posts %}
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
@@ -276,7 +186,6 @@
     </div>
 </div>
 
-
 <div id="editModal" class="modal-overlay">
     <div class="modal-card">
         <div class="modal-header">
@@ -300,12 +209,10 @@
                 <label>Photo de profil</label>
                 <div style="display: flex; align-items: center; gap: 15px; margin-top: 5px;">
                     <input type="file" name="avatar" accept="image/*" id="avatar-input" style="display: none;" onchange="updateFileName(this)">
-
                     <button type="button" onclick="document.getElementById('avatar-input').click()"
                             style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: 0.3s;">
                         📷 Choisir une photo
                     </button>
-
                     <span id="file-name" style="font-size: 0.85em; color: #718096; font-style: italic;">Aucun fichier choisi</span>
                 </div>
             </div>
@@ -318,6 +225,7 @@
 </div>
 
 <script>
+{# --- SCRIPTS CONSERVÉS --- #}
 function moveSlider(postId, direction) {
     const slider = document.getElementById('slider-' + postId);
     if(!slider) return;
@@ -352,117 +260,79 @@ function updateCover(input) {
     }
 }
 
-function openModal() {
-    document.getElementById('editModal').style.display = 'flex';
-}
-
-function closeModal() {
-    document.getElementById('editModal').style.display = 'none';
-}
-
-window.onclick = function(event) {
-    let modal = document.getElementById('editModal');
-    if (event.target == modal) closeModal();
-}
-
-document.getElementById('editProfileForm').onsubmit = function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-
-    // On désactive le bouton pour éviter les doubles clics
-    const saveBtn = this.querySelector('.save-btn');
-    const originalBtnText = saveBtn.innerText;
-    saveBtn.innerText = "Enregistrement...";
-    saveBtn.disabled = true;
-
-    fetch('/update_profile_ajax', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error("Erreur serveur (Code " + response.status + "). Vérifiez que vous êtes bien connecté.");
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            // 1. Mise à jour du nom et de la bio
-            document.querySelector('h2').innerText = formData.get('firstname') + ' ' + formData.get('lastname');
-            document.querySelector('.profile-bio').innerText = formData.get('bio') || "Bienvenue sur mon profil ! ✨";
-
-            // 2. Mise à jour de l'AVATAR PARTOUT sur la page
-            if (data.new_avatar) {
-                const newSrc = "/static/avatars/" + data.new_avatar + "?t=" + new Date().getTime();
-
-                // On cible TOUTES les images qui pourraient être ton avatar
-                // (Photo de profil + avatars à côté de tes posts)
-                const allMyAvatars = document.querySelectorAll('img[src*="avatars/"]');
-
-                allMyAvatars.forEach(img => {
-                    // On ne change que si c'est l'avatar de l'utilisateur actuel
-                    // (Optionnel : si tu veux être précis, vérifie une classe ou l'ancien nom)
-                    img.src = newSrc;
-                });
-            }
-
-            closeModal();
-            alert("Profil mis à jour avec succès !");
-        } else {
-            alert("Erreur : " + (data.error || "Une erreur est survenue"));
-        }
-    })
-    .catch(error => {
-        console.error("Erreur détaillée:", error);
-        alert("Impossible d'enregistrer : " + error.message);
-    })
-    .finally(() => {
-        // On réactive le bouton
-        saveBtn.innerText = originalBtnText;
-        saveBtn.disabled = false;
-    });
-};
-
-function deleteAccount() {
-    if (confirm("Êtes-vous sûr de vouloir supprimer définitivement votre profil ? Cette action est irréversible.")) {
-        fetch('/delete_profile_ajax', { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                window.location.href = '/login';
-            }
-        });
-    }
-}
+function openModal() { document.getElementById('editModal').style.display = 'flex'; }
+function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+window.onclick = function(event) { let modal = document.getElementById('editModal'); if (event.target == modal) closeModal(); }
 
 function updateFileName(input) {
     const fileNameSpan = document.getElementById('file-name');
     if (input.files && input.files.length > 0) {
         fileNameSpan.innerText = input.files[0].name;
-        fileNameSpan.style.color = "#38a169"; // Passe en vert pour confirmer
+        fileNameSpan.style.color = "#38a169";
     } else {
         fileNameSpan.innerText = "Aucun fichier choisi";
         fileNameSpan.style.color = "#718096";
     }
 }
 
-  document.addEventListener('click', function(event) {
-    // On cible spécifiquement les divs qui ont la classe "comment-area"
-    const sections = document.querySelectorAll('.comment-area');
+{# --- MODIFICATIONS SWEETALERT2 --- #}
+document.getElementById('editProfileForm').onsubmit = function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const saveBtn = this.querySelector('.save-btn');
+    saveBtn.disabled = true;
 
-    sections.forEach(section => {
-        // On ne s'occupe que de celles qui sont affichées
-        if (window.getComputedStyle(section).display === "block") {
-
-            const postCard = section.closest('.post-card');
-
-            // On vérifie si le clic est à l'intérieur de la carte du post
-            const isInside = postCard.contains(event.target);
-
-            // Si le clic est à l'extérieur de la carte, on ferme
-            if (!isInside) {
-                section.style.display = "none";
+    fetch('/update_profile_ajax', { method: 'POST', body: formData })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelector('h2').innerText = formData.get('firstname') + ' ' + formData.get('lastname');
+            document.querySelector('.profile-bio').innerText = formData.get('bio') || "Bienvenue sur mon profil ! ✨";
+            if (data.new_avatar) {
+                const newSrc = "/static/avatars/" + data.new_avatar + "?t=" + new Date().getTime();
+                document.querySelectorAll('img[src*="avatars/"]').forEach(img => { img.src = newSrc; });
             }
+            closeModal();
+            // Remplacement de l'alert classique par SweetAlert2
+            Swal.fire({ icon: 'success', title: 'Succès', text: 'Profil mis à jour !', timer: 2000, showConfirmButton: false });
+        } else {
+            Swal.fire({ icon: 'error', title: 'Erreur', text: data.error || 'Une erreur est survenue' });
+        }
+    })
+    .catch(error => { Swal.fire({ icon: 'error', title: 'Erreur', text: 'Impossible d\'enregistrer' }); })
+    .finally(() => { saveBtn.disabled = false; });
+};
+
+function deleteAccount() {
+    Swal.fire({
+        title: 'Êtes-vous sûr ?',
+        text: "Toutes vos données seront définitivement supprimées. Cette action est irréversible !",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e53e3e',
+        cancelButtonColor: '#65676b',
+        confirmButtonText: 'Oui, supprimer définitivement',
+        cancelButtonText: 'Annuler',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Suppression...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+            fetch('/delete_profile_ajax', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) { window.location.href = '/login'; }
+                else { Swal.fire('Erreur', 'Impossible de supprimer le profil', 'error'); }
+            });
+        }
+    });
+}
+
+document.addEventListener('click', function(event) {
+    const sections = document.querySelectorAll('.comment-area');
+    sections.forEach(section => {
+        if (window.getComputedStyle(section).display === "block") {
+            const postCard = section.closest('.post-card');
+            if (!postCard.contains(event.target)) { section.style.display = "none"; }
         }
     });
 });

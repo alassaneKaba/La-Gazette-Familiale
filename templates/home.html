@@ -59,6 +59,18 @@
     .icon-btn-cancel { background: #e4e6eb; color: #4b4b4b; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
     .icon-btn-cancel:hover { background: #d8dadf; }
     .action-btn:hover { background: #f2f2f2 !important; border-radius: 5px; }
+
+    /* ÉVOLUTION : Slider vertical pour les commentaires */
+    .comments-scroll-container {
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 10px;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e0 #f0f2f5;
+    }
+    .comments-scroll-container::-webkit-scrollbar { width: 6px; }
+    .comments-scroll-container::-webkit-scrollbar-track { background: #f0f2f5; border-radius: 10px; }
+    .comments-scroll-container::-webkit-scrollbar-thumb { background-color: #cbd5e0; border-radius: 10px; border: 1px solid #f0f2f5; }
 </style>
 
 {# --- 3. SIDEBAR --- #}
@@ -157,14 +169,15 @@
             <button onclick="toggleComments({{ post['id'] }})" class="action-btn" style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">💬 Commenter</button>
         </div>
 
-        <div id="comment-section-{{ post['id'] }}" style="display: none; background: #f0f2f5; padding: 15px 20px;">
-            <div id="comments-{{ post['id'] }}">
+        <div id="comment-section-{{ post['id'] }}" style="display: none; background: #f0f2f5; padding: 15px 20px; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;">
+            {# ÉVOLUTION : Conteneur avec scroll #}
+            <div id="comments-{{ post['id'] }}" class="comments-scroll-container">
                 {% for c in comments if c['post_id'] == post['id'] and not c['parent_id'] %}
                     {{ render_comment(c, post['id'], comments) }}
                 {% endfor %}
             </div>
             {% if session.get("user") %}
-            <form onsubmit="addComment(event, {{ post['id'] }})" style="display: flex; gap: 8px; align-items: center; margin-top: 15px;">
+            <form onsubmit="addComment(event, {{ post['id'] }})" style="display: flex; gap: 8px; align-items: center; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
                 <input id="comment-input-{{ post['id'] }}" placeholder="Écrire un commentaire..." style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 20px; padding: 8px 15px; outline: none; font-size: 0.9em;">
                 <button type="submit" style="background: none; border: none; color: #1877f2; font-size: 1.2em; cursor: pointer;">➤</button>
             </form>
@@ -188,13 +201,14 @@
 
         if (isOpening) {
             section.style.display = "block";
+            // ÉVOLUTION : Auto-scroll vers le bas à l'ouverture pour voir les derniers messages
+            const scrollDiv = document.getElementById("comments-" + postId);
+            if(scrollDiv) scrollDiv.scrollTop = scrollDiv.scrollHeight;
         } else {
             section.style.display = "none";
-            // REMISE À ZÉRO : On replie toutes les réponses à l'intérieur quand on ferme le post
             const allReplies = section.querySelectorAll('.replies-container');
             allReplies.forEach(div => {
                 div.style.display = "none";
-                // On remet aussi les textes des boutons à "Voir les réponses"
                 const commentId = div.id.replace('replies-', '');
                 const btn = document.getElementById('btn-replies-' + commentId);
                 if (btn) {
@@ -289,6 +303,9 @@
                 </div>`);
                 document.getElementById('reply-form-' + parentId).remove();
                 document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
+                // ÉVOLUTION : Auto-scroll vers la nouvelle réponse
+                const scrollDiv = document.getElementById("comments-" + postId);
+                scrollDiv.scrollTop = scrollDiv.scrollHeight;
             }
         });
     }
@@ -300,7 +317,8 @@
         .then(res => res.json())
         .then(data => {
             if (data && data.username) {
-                document.getElementById("comments-" + postId).insertAdjacentHTML('beforeend', `
+                const commentsDiv = document.getElementById("comments-" + postId);
+                commentsDiv.insertAdjacentHTML('beforeend', `
                 <div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
                     <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; align-items: flex-start;">
                         <img src="/static/avatars/{{ session.get('user_avatar', 'default.png') }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
@@ -321,6 +339,8 @@
                 </div>`);
                 input.value = "";
                 document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
+                // ÉVOLUTION : Auto-scroll vers le bas pour voir son propre commentaire
+                commentsDiv.scrollTop = commentsDiv.scrollHeight;
             }
         });
     }
@@ -338,7 +358,6 @@
     document.addEventListener('click', function(event) {
         document.querySelectorAll('[id^="comment-section-"]').forEach(section => {
             if (section.style.display !== "none" && !section.closest('.post-card').contains(event.target)) {
-                // On utilise la fonction toggleComments pour profiter de la réinitialisation
                 toggleComments(section.id.replace('comment-section-', ''));
             }
         });
@@ -371,17 +390,14 @@
             const targetComment = document.getElementById('comment-' + commentId);
 
             if (targetComment) {
-                // 1. Trouver le conteneur du post pour ouvrir la section commentaires
                 const postCard = targetComment.closest('.post-card');
                 const commentSection = postCard.querySelector('[id^="comment-section-"]');
                 if (commentSection) commentSection.style.display = "block";
 
-                // 2. Remonter les parents pour déplier les réponses si c'est une réponse
                 let parent = targetComment.parentElement;
                 while (parent) {
                     if (parent.classList.contains('replies-container')) {
                         parent.style.display = "block";
-                        // Mettre à jour le bouton "Voir les réponses" associé
                         const parentCommId = parent.id.replace('replies-', '');
                         const btn = document.getElementById('btn-replies-' + parentCommId);
                         if (btn) {
@@ -392,13 +408,11 @@
                     parent = parent.parentElement;
                 }
 
-                // 3. Scroller vers le commentaire avec un petit délai pour laisser le temps au navigateur
                 setTimeout(() => {
                     targetComment.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Petit bonus : faire clignoter le commentaire pour le repérer
                     const box = targetComment.querySelector('div[style*="background"]');
                     if (box) {
-                        box.style.backgroundColor = "#fff3cd"; // Jaune pâle
+                        box.style.backgroundColor = "#fff3cd";
                         setTimeout(() => box.style.backgroundColor = "white", 2000);
                     }
                 }, 300);

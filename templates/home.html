@@ -1,34 +1,62 @@
 {% extends "base.html" %}
 {% block content %}
 
+{# --- 1. DÉFINITION DE LA MACRO --- #}
+{% macro render_comment(c, post_id, all_comments) %}
+<div id="comment-container-{{ c['id'] }}" style="margin-bottom: 12px;">
+    <div id="comment-{{ c['id'] }}" style="display: flex; gap: 10px; align-items: flex-start;">
+        <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
+             style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+        <div style="display: flex; flex-direction: column;">
+            <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <strong style="font-size: 0.85em; display: block; color: #1c1e21;">{{ c['username'] }}</strong>
+                <span style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
+            </div>
+            <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
+                <span class="live-date" data-time="{{ c['created_at'] }}" style="font-size: 0.7em; color: #718096;">
+                    {{ c['created_at'] | relative_time }}
+                </span>
+                {% if session.get("user") %}
+                <button onclick="showReplyForm({{ c['id'] }}, {{ post_id }}, '{{ c['username'] }}')"
+                        style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">
+                    Répondre
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% set replies = all_comments | selectattr('parent_id', 'equalto', c['id']) | list %}
+    {% if replies | length > 0 %}
+    <button id="btn-replies-{{ c['id'] }}" onclick="toggleReplies({{ c['id'] }})"
+            style="background:none; border:none; color:#65676b; font-size:0.85em; font-weight:bold; cursor:pointer; margin-left:45px; margin-top:5px; padding:0; display:flex; align-items:center; gap:5px;">
+        <span>Voir {{ replies | length }} réponse{{ 's' if replies|length > 1 else '' }}</span>
+        <svg class="arrow-icon" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+    </button>
+    {% endif %}
+
+    <div id="replies-{{ c['id'] }}" class="replies-container" style="display: none;">
+        {% for r in replies %}
+            {{ render_comment(r, post_id, all_comments) }}
+        {% endfor %}
+    </div>
+</div>
+{% endmacro %}
+
+{# --- 2. STYLES --- #}
 <style>
-    .zoomable {
-        max-width: 100%;
-        max-height: 500px;
-        display: block;
-        margin: 0 auto;
-        transition: transform 0.2s;
-        object-fit: contain;
-    }
-    .zoomable:hover {
-        opacity: 0.9;
-    }
-    /* Style pour la ligne verticale des réponses */
-    .replies-container {
-        margin-left: 42px;
-        margin-top: 10px;
-        border-left: 2px solid #ddd;
-        padding-left: 12px;
-    }
-    /* Style pour l'icône de flèche */
-    .arrow-icon {
-        width: 12px;
-        height: 12px;
-        transition: transform 0.2s;
-        fill: currentColor;
-    }
+    .zoomable { max-width: 100%; max-height: 500px; display: block; margin: 0 auto; transition: transform 0.2s; object-fit: contain; }
+    .zoomable:hover { opacity: 0.9; }
+    .replies-container { margin-left: 30px; margin-top: 8px; border-left: 1px dashed #cbd5e0; padding-left: 12px; }
+    .arrow-icon { width: 12px; height: 12px; transition: transform 0.2s; fill: currentColor; }
+    .icon-btn-send { background: #1877f2; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; transition: background 0.2s; }
+    .icon-btn-send:hover { background: #166fe5; }
+    .icon-btn-cancel { background: #e4e6eb; color: #4b4b4b; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+    .icon-btn-cancel:hover { background: #d8dadf; }
+    .action-btn:hover { background: #f2f2f2 !important; border-radius: 5px; }
 </style>
 
+{# --- 3. SIDEBAR --- #}
 <aside class="sidebar">
     <div class="post-card" style="text-align: center; border-top: 4px solid #3182ce;">
         {% if session.get("user") %}
@@ -36,47 +64,31 @@
         <h3 style="margin: 0; color: #2d3748;">Bonjour,</h3>
         <h2 style="margin: 5px 0; color: #1a202c; font-size: 1.4em;">{{ session['user'] }}</h2>
         <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #edf2f7;">
-            <a href="{{ url_for('profile', username=session['user']) }}"
-               style="text-decoration: none; color: #3182ce; font-weight: 700; font-size: 0.9em;">Voir mon mur →</a>
+            <a href="{{ url_for('profile', username=session['user']) }}" style="text-decoration: none; color: #3182ce; font-weight: 700; font-size: 0.9em;">Voir mon mur →</a>
         </div>
         {% else %}
         <p style="color: #718096;">Connectez-vous pour participer.</p>
-        <a href="/login"
-           style="display: inline-block; background: #3182ce; color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: bold;">Se
-            connecter</a>
+        <a href="/login" style="display: inline-block; background: #3182ce; color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: bold;">Se connecter</a>
         {% endif %}
     </div>
 </aside>
 
+{# --- 4. FEED PRINCIPAL --- #}
 <main class="feed">
-
     {% if session.get("user") %}
     <div class="post-card">
         <form method="POST" action="/post" enctype="multipart/form-data">
-            <textarea name="content" placeholder="Quoi de neuf, {{ session['user'] }} ?" required
-                      style="width: 100%; border: none; outline: none; resize: none; font-size: 1.1em; font-family: inherit; min-height: 60px; margin-bottom: 10px;"></textarea>
-
-            <div id="preview-container"
-                 style="display: none; margin-bottom: 15px; border: 1px solid #edf2f7; padding: 10px; border-radius: 12px; background: #f8fafc;">
-                <div id="preview-grid"
-                     style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;">
-                </div>
-                <button type="button" onclick="removeFiles()"
-                        style="margin-top: 10px; background: #e53e3e; color: white; border: none; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8em; font-weight: bold;">
-                    Tout effacer
-                </button>
+            <textarea name="content" placeholder="Quoi de neuf, {{ session['user'] }} ?" required style="width: 100%; border: none; outline: none; resize: none; font-size: 1.1em; font-family: inherit; min-height: 60px; margin-bottom: 10px;"></textarea>
+            <div id="preview-container" style="display: none; margin-bottom: 15px; border: 1px solid #edf2f7; padding: 10px; border-radius: 12px; background: #f8fafc;">
+                <div id="preview-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;"></div>
+                <button type="button" onclick="removeFiles()" style="margin-top: 10px; background: #e53e3e; color: white; border: none; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8em; font-weight: bold;">Tout effacer</button>
             </div>
-
             <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f7fafc; padding-top: 15px;">
                 <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9em; background: #edf2f7; padding: 8px 15px; border-radius: 20px;">
                     <span>📸 Ajouter photos / vidéos</span>
-                    <input type="file" id="image-input" name="images" accept="image/*,video/*" multiple
-                           style="display: none;" onchange="previewFiles()">
+                    <input type="file" id="image-input" name="images" accept="image/*,video/*" multiple style="display: none;" onchange="previewFiles()">
                 </label>
-                <button type="submit"
-                        style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;">
-                    Publier
-                </button>
+                <button type="submit" style="background: #3182ce; color: white; padding: 10px 25px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;">Publier</button>
             </div>
         </form>
     </div>
@@ -84,31 +96,21 @@
 
     {% for post in posts %}
     <div class="post-card" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
-
         <div style="padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <a href="{{ url_for('profile', username=post['username']) }}">
-                    <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}"
-                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                    <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
                 </a>
                 <div>
                     <a href="{{ url_for('profile', username=post['username']) }}" style="text-decoration: none;">
                         <strong style="display: block; color: #1a202c;">{{ post['username'] }}</strong>
                     </a>
-                    <span class="live-date" data-time="{{ post['created_at'] }}"
-                          style="font-size: 0.75em; color: #718096;">
-                    {{ post['created_at'] | relative_time }}
-                </span>
+                    <span class="live-date" data-time="{{ post['created_at'] }}" style="font-size: 0.75em; color: #718096;">{{ post['created_at'] | relative_time }}</span>
                 </div>
             </div>
-
             {% if session.get("user") == post['username'] %}
-            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer ce souvenir ?');"
-                  style="margin:0;">
-                <button type="submit"
-                        style="background:#f7fafc; border:none; color: #a0aec0; cursor:pointer; padding: 8px; border-radius: 8px;">
-                    <span style="font-size: 1.1em;">🗑️</span>
-                </button>
+            <form method="POST" action="/delete/{{ post['id'] }}" onsubmit="return confirm('Supprimer ce souvenir ?');" style="margin:0;">
+                <button type="submit" style="background:#f7fafc; border:none; color: #a0aec0; cursor:pointer; padding: 8px; border-radius: 8px;">🗑️</button>
             </form>
             {% endif %}
         </div>
@@ -116,140 +118,66 @@
         <div style="padding: 0 20px 10px 20px; white-space: pre-wrap; color: #2d3748;">{{ post['content'] }}</div>
 
         {% if post.medias %}
-        <div class="carousel-container" id="carousel-{{ post.id }}"
-             style="position: relative; background: #000; display: flex; align-items: center; justify-content: center; min-height: 300px;">
+        <div class="carousel-container" id="carousel-{{ post.id }}" style="position: relative; background: #000; display: flex; align-items: center; justify-content: center; min-height: 300px;">
             {% if post.medias|length > 1 %}
-            <div class="carousel-counter"
-                 style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; z-index: 10; font-weight: bold;">
+            <div class="carousel-counter" style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; z-index: 10; font-weight: bold;">
                 <span class="current">1</span> / {{ post.medias|length }}
             </div>
+            <button class="prev" onclick="moveSlide('{{ post.id }}', -1)" style="position: absolute; left: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer; z-index: 5;">&#10094;</button>
+            <button class="next" onclick="moveSlide('{{ post.id }}', 1)" style="position: absolute; right: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer; z-index: 5;">&#10095;</button>
             {% endif %}
-
             <div class="carousel-items" style="width: 100%;">
                 {% for media in post.medias %}
-                <div class="carousel-item {% if loop.first %}active{% endif %}"
-                     style="display: {% if loop.first %}block{% else %}none{% endif %}; text-align: center;">
+                <div class="carousel-item {% if loop.first %}active{% endif %}" style="display: {% if loop.first %}block{% else %}none{% endif %}; text-align: center;">
                     {% if media.file_type == 'video' %}
-                    <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls
-                           style="max-width: 100%; max-height: 500px; display: block; margin: 0 auto;"></video>
+                    <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="max-width: 100%; max-height: 500px; display: block; margin: 0 auto;"></video>
                     {% else %}
-                    <img src="{{ url_for('static', filename='uploads/' + media.filename) }}"
-                         class="zoomable"
-                         onclick="openLightbox(this.src)"
-                         style="cursor: zoom-in;">
+                    <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" class="zoomable" onclick="openLightbox(this.src)" style="cursor: zoom-in;">
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
-
-            {% if post.medias|length > 1 %}
-            <button class="prev" onclick="moveSlide('{{ post.id }}', -1)"
-                    style="position: absolute; left: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer;">
-                &#10094;
-            </button>
-            <button class="next" onclick="moveSlide('{{ post.id }}', 1)"
-                    style="position: absolute; right: 10px; background: rgba(255,255,255,0.3); border: none; color: white; font-size: 20px; padding: 10px; border-radius: 50%; cursor: pointer;">
-                &#10095;
-            </button>
-            {% endif %}
         </div>
         {% endif %}
 
         <div style="display: flex; justify-content: space-between; padding: 12px 20px; font-size: 0.9em; color: #65676b;">
             <div>👍 <span id="thumbs-{{ post['id'] }}">{{ post['thumbs'] }}</span></div>
             <div style="cursor: pointer;" onclick="toggleComments({{ post['id'] }})">
-                <span id="comment-count-{{ post['id'] }}">{{ comments|selectattr('post_id', 'equalto', post['id'])|list|length }}</span>
-                commentaires
+                <span id="comment-count-{{ post['id'] }}">{{ (comments|selectattr('post_id', 'equalto', post['id'])|list|length) }}</span> commentaires
             </div>
         </div>
 
         <div style="display: flex; border-top: 1px solid #f2f4f7; border-bottom: 1px solid #f2f4f7; margin: 0 15px; padding: 2px 0;">
-            <button onclick="react({{ post['id'] }}, 'thumb')" class="action-btn"
-                    style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">
-                👍 J'aime
-            </button>
-            <button onclick="toggleComments({{ post['id'] }})" class="action-btn"
-                    style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">
-                💬 Commenter
-            </button>
+            <button onclick="react({{ post['id'] }}, 'thumb')" class="action-btn" style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">👍 J'aime</button>
+            <button onclick="toggleComments({{ post['id'] }})" class="action-btn" style="flex: 1; background: none; border: none; padding: 10px; color: #65676b; font-weight: 600; cursor: pointer;">💬 Commenter</button>
         </div>
 
         <div id="comment-section-{{ post['id'] }}" style="display: none; background: #f0f2f5; padding: 15px 20px;">
             <div id="comments-{{ post['id'] }}">
-                {% for c in comments %}{% if c['post_id'] == post['id'] and not c['parent_id'] %}
-                <div id="comment-container-{{ c['id'] }}" style="margin-bottom: 12px;">
-                    <div id="comment-{{ c['id'] }}" style="display: flex; gap: 10px; align-items: flex-start;">
-                        <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
-                             style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-                        <div style="display: flex; flex-direction: column;">
-                            <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                <strong style="font-size: 0.85em; display: block; color: #1c1e21;">{{ c['username'] }}</strong>
-                                <span style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
-                            </div>
-                            <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
-                                <span class="live-date" data-time="{{ c['created_at'] }}" style="font-size: 0.7em; color: #718096;">
-                                    {{ c['created_at'] | relative_time }}
-                                </span>
-                                {% if session.get("user") %}
-                                <button onclick="showReplyForm({{ c['id'] }}, {{ post['id'] }})" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    {% set reply_count = comments|selectattr('parent_id', 'equalto', c['id'])|list|length %}
-                    {% if reply_count > 0 %}
-                    <button id="btn-replies-{{ c['id'] }}" onclick="toggleReplies({{ c['id'] }})"
-                            style="background:none; border:none; color:#65676b; font-size:0.85em; font-weight:bold; cursor:pointer; margin-left:45px; margin-top:5px; padding:0; display:flex; align-items:center; gap:5px;">
-                        <span>Voir {{ reply_count }} réponse{{ 's' if reply_count > 1 else '' }}</span>
-                        <svg class="arrow-icon" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                    </button>
-                    {% endif %}
-
-                    <div id="replies-{{ c['id'] }}" class="replies-container" style="display: none;">
-                        {% for reply in comments if reply['parent_id'] == c['id'] %}
-                        <div id="comment-{{ reply['id'] }}" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start;">
-                            <img src="{{ url_for('static', filename='avatars/' + (reply['comm_avatar'] if reply['comm_avatar'] else 'default.png')) }}"
-                                 style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
-                            <div style="background: #ffffff; padding: 6px 10px; border-radius: 15px; font-size: 0.9em; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                <strong>{{ reply['username'] }}</strong> {{ reply['content'] }}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}{% endfor %}
+                {% for c in comments if c['post_id'] == post['id'] and not c['parent_id'] %}
+                    {{ render_comment(c, post['id'], comments) }}
+                {% endfor %}
             </div>
             {% if session.get("user") %}
-            <form onsubmit="addComment(event, {{ post['id'] }})"
-                  style="display: flex; gap: 8px; align-items: center; margin-top: 15px;">
-                <input id="comment-input-{{ post['id'] }}" placeholder="Écrire un commentaire..."
-                       style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 20px; padding: 8px 15px; outline: none; font-size: 0.9em;">
-                <button type="submit"
-                        style="background: none; border: none; color: #1877f2; font-weight: bold; cursor: pointer;">
-                    Publier
-                </button>
+            <form onsubmit="addComment(event, {{ post['id'] }})" style="display: flex; gap: 8px; align-items: center; margin-top: 15px;">
+                <input id="comment-input-{{ post['id'] }}" placeholder="Écrire un commentaire..." style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 20px; padding: 8px 15px; outline: none; font-size: 0.9em;">
+                <button type="submit" style="background: none; border: none; color: #1877f2; font-size: 1.2em; cursor: pointer;">➤</button>
             </form>
             {% endif %}
         </div>
     </div>
     {% endfor %}
-
 </main>
 
-<div id="lightbox" onclick="this.style.display='none'"
-     style="display:none; position:fixed; z-index:9999; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); cursor:zoom-out; align-items:center; justify-content:center;">
+<div id="lightbox" onclick="this.style.display='none'" style="display:none; position:fixed; z-index:9999; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); cursor:zoom-out; align-items:center; justify-content:center;">
     <img id="lightbox-img" style="max-width:95%; max-height:95%; border-radius:5px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
 </div>
 
+{# --- 5. JAVASCRIPT --- #}
 <script>
-    // --- GESTION LIGHTBOX ---
-    function openLightbox(src) {
-        document.getElementById('lightbox-img').src = src;
-        document.getElementById('lightbox').style.display = 'flex';
-    }
+    function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').style.display = 'flex'; }
 
-    // --- INTERACTIONS DE BASE ---
+    // CORRECTION : Ferme proprement et replie tout
     function toggleComments(postId) {
         const section = document.getElementById('comment-section-' + postId);
         const isOpening = section.style.display === "none";
@@ -258,15 +186,17 @@
             section.style.display = "block";
         } else {
             section.style.display = "none";
-            // Repli automatique de toutes les réponses du post
+            // Replier toutes les réponses à l'intérieur pour la prochaine ouverture
             const allReplies = section.querySelectorAll('.replies-container');
-            allReplies.forEach(div => div.style.display = "none");
-            const allReplyBtns = section.querySelectorAll('[id^="btn-replies-"]');
-            allReplyBtns.forEach(btn => {
-                const cid = btn.id.replace('btn-replies-', '');
-                const count = document.getElementById('replies-' + cid).children.length;
-                btn.querySelector('span').innerText = `Voir ${count} réponse${count > 1 ? 's' : ''}`;
-                btn.querySelector('svg').style.transform = "rotate(0deg)";
+            allReplies.forEach(div => {
+                div.style.display = "none";
+                const commentId = div.id.replace('replies-', '');
+                const btn = document.getElementById('btn-replies-' + commentId);
+                if (btn) {
+                    const count = div.querySelectorAll(':scope > div[id^="comment-container-"]').length;
+                    btn.querySelector('span').innerText = `Voir ${count} réponse${count > 1 ? 's' : ''}`;
+                    btn.querySelector('svg').style.transform = "rotate(0deg)";
+                }
             });
         }
     }
@@ -274,39 +204,27 @@
     function toggleReplies(commentId) {
         const repliesDiv = document.getElementById('replies-' + commentId);
         const btn = document.getElementById('btn-replies-' + commentId);
-        const textSpan = btn.querySelector('span');
-        const svg = btn.querySelector('svg');
-
-        if (repliesDiv.style.display === "none") {
-            repliesDiv.style.display = "block";
-            textSpan.innerText = "Masquer";
-            svg.style.transform = "rotate(180deg)";
-        } else {
-            repliesDiv.style.display = "none";
-            const count = repliesDiv.children.length;
-            textSpan.innerText = `Voir ${count} réponse${count > 1 ? 's' : ''}`;
-            svg.style.transform = "rotate(0deg)";
-        }
+        const isHidden = repliesDiv.style.display === "none";
+        repliesDiv.style.display = isHidden ? "block" : "none";
+        btn.querySelector('span').innerText = isHidden ? "Masquer" : `Voir ${repliesDiv.children.length} réponse${repliesDiv.children.length > 1 ? 's' : ''}`;
+        btn.querySelector('svg').style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
     }
 
     function react(postId, type) {
         fetch("/react/" + postId + "/" + type, { method: "POST", headers: { 'X-Requested-With': 'XMLHttpRequest' }})
-        .then(res => {
-            if (res.status === 403 || res.status === 401) { window.location.href = "/login"; return; }
-            return res.json();
-        })
+        .then(res => res.json())
         .then(data => { if (data) document.getElementById("thumbs-" + postId).innerText = data.thumb; });
     }
 
-    // --- NOUVELLES FONCTIONS DE RÉPONSE ---
-    function showReplyForm(commentId, postId) {
-        if (document.getElementById('reply-form-' + commentId)) return;
+    function showReplyForm(commentId, postId, mention) {
+        const existingForm = document.getElementById('reply-form-' + commentId);
+        if (existingForm) { existingForm.remove(); return; }
         let container = document.getElementById('comment-container-' + commentId);
         let formHtml = `
-            <form id="reply-form-${commentId}" onsubmit="addReply(event, ${postId}, ${commentId})" style="display: flex; gap: 8px; margin: 10px 0 10px 45px;">
-                <input id="reply-input-${commentId}" placeholder="Votre réponse..." style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 15px; padding: 5px 12px; outline: none; font-size: 0.85em;">
-                <button type="submit" style="background: none; border: none; color: #1877f2; font-weight: bold; cursor: pointer; font-size: 0.85em;">Répondre</button>
-                <button type="button" onclick="this.parentElement.remove()" style="background: none; border: none; color: #718096; cursor: pointer; font-size: 0.85em;">Annuler</button>
+            <form id="reply-form-${commentId}" onsubmit="addReply(event, ${postId}, ${commentId})" style="display: flex; gap: 8px; margin: 10px 0 10px 45px; align-items: center;">
+                <input id="reply-input-${commentId}" value="@${mention} " placeholder="Répondre..." style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 20px; padding: 6px 15px; outline: none; font-size: 0.85em;">
+                <button type="submit" class="icon-btn-send">➤</button>
+                <button type="button" onclick="this.parentElement.remove()" class="icon-btn-cancel">✕</button>
             </form>`;
         container.insertAdjacentHTML('beforeend', formHtml);
         document.getElementById('reply-input-' + commentId).focus();
@@ -316,7 +234,6 @@
         event.preventDefault();
         let input = document.getElementById("reply-input-" + parentId);
         if (!input.value.trim()) return;
-
         fetch("/comment/" + postId, {
             method: "POST",
             headers: {"Content-Type": "application/x-www-form-urlencoded"},
@@ -326,23 +243,29 @@
         .then(data => {
             if (data && data.username) {
                 let repliesDiv = document.getElementById("replies-" + parentId);
-                let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
                 repliesDiv.style.display = "block";
-                repliesDiv.innerHTML += `
-                    <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start;">
-                        <img src="/static/avatars/${userAvatar}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
-                        <div style="background: #ffffff; padding: 6px 10px; border-radius: 15px; font-size: 0.9em; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                            <strong>${data.username}</strong> ${data.content}
+                let newHtml = `
+                <div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
+                    <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; align-items: flex-start;">
+                        <img src="/static/avatars/{{ session.get('user_avatar', 'default.png') }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                        <div style="display: flex; flex-direction: column;">
+                            <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
+                                <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
+                            </div>
+                            <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
+                                <span style="font-size: 0.7em; color: #718096;">À l'instant</span>
+                                <button onclick="showReplyForm(${data.comment_id}, ${postId}, '${data.username}')" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
+                            </div>
                         </div>
-                    </div>`;
+                    </div>
+                    <div id="replies-${data.comment_id}" class="replies-container" style="display:none;"></div>
+                </div>`;
+                repliesDiv.insertAdjacentHTML('beforeend', newHtml);
                 let btn = document.getElementById('btn-replies-' + parentId);
-                if (btn) {
-                    btn.querySelector('span').innerText = "Masquer";
-                    btn.querySelector('svg').style.transform = "rotate(180deg)";
-                }
+                if (btn) { btn.querySelector('span').innerText = "Masquer"; btn.querySelector('svg').style.transform = "rotate(180deg)"; }
                 document.getElementById('reply-form-' + parentId).remove();
-                let countEl = document.getElementById("comment-count-" + postId);
-                if (countEl) countEl.innerText = parseInt(countEl.innerText) + 1;
+                document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
             }
         });
     }
@@ -351,7 +274,6 @@
         event.preventDefault();
         let input = document.getElementById("comment-input-" + postId);
         if (!input.value.trim()) return;
-
         fetch("/comment/" + postId, {
             method: "POST",
             headers: {"Content-Type": "application/x-www-form-urlencoded"},
@@ -361,211 +283,90 @@
         .then(data => {
             if (data && data.username) {
                 let div = document.getElementById("comments-" + postId);
-                let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
-                const nowUTC = new Date().toISOString().replace('T', ' ').split('.')[0];
-
-                div.innerHTML += `
-                    <div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
-                        <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
-                            <img src="/static/avatars/${userAvatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-                            <div style="display: flex; flex-direction: column;">
-                                <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                    <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
-                                    <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
-                                </div>
-                                <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
-                                    <span class="live-date" data-time="${nowUTC}" style="font-size: 0.7em; color: #718096;">À l'instant</span>
-                                    <button onclick="showReplyForm(${data.comment_id}, ${postId})" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
-                                </div>
+                let html = `<div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
+                    <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; align-items: flex-start;">
+                        <img src="/static/avatars/{{ session.get('user_avatar', 'default.png') }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                        <div style="display: flex; flex-direction: column;">
+                            <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
+                                <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
+                            </div>
+                            <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
+                                <span style="font-size: 0.7em; color: #718096;">À l'instant</span>
+                                <button onclick="showReplyForm(${data.comment_id}, ${postId}, '${data.username}')" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
                             </div>
                         </div>
-                        <div id="replies-${data.comment_id}" class="replies-container" style="display:none;"></div>
-                    </div>`;
-
-                let countEl = document.getElementById("comment-count-" + postId);
-                if (countEl) countEl.innerText = parseInt(countEl.innerText) + 1;
+                    </div>
+                    <div id="replies-${data.comment_id}" class="replies-container" style="display:none;"></div>
+                </div>`;
+                div.insertAdjacentHTML('beforeend', html);
                 input.value = "";
+                document.getElementById("comment-count-" + postId).innerText = parseInt(document.getElementById("comment-count-" + postId).innerText) + 1;
             }
         });
     }
 
-    // --- GESTION DE l'UPLOAD ET PREVIEW ---
     let selectedFiles = [];
-
-    function previewFiles() {
-        const fileInput = document.getElementById('image-input');
-        selectedFiles = [...selectedFiles, ...Array.from(fileInput.files)];
-        renderPreview();
-    }
-
+    function previewFiles() { const input = document.getElementById('image-input'); selectedFiles = [...selectedFiles, ...Array.from(input.files)]; renderPreview(); }
     function renderPreview() {
-        const previewGrid = document.getElementById('preview-grid');
+        const grid = document.getElementById('preview-grid');
         const container = document.getElementById('preview-container');
-        previewGrid.innerHTML = "";
-
-        if (selectedFiles.length === 0) {
-            container.style.display = "none";
-            return;
-        }
-
+        grid.innerHTML = "";
+        if (selectedFiles.length === 0) { container.style.display = "none"; return; }
         container.style.display = "block";
         selectedFiles.forEach((file, index) => {
-            const reader = new FileReader();
             const div = document.createElement('div');
             div.style.cssText = "position: relative; width: 100px; height: 100px;";
-            reader.onload = (e) => {
-                let mediaHtml = file.type.startsWith('video/')
-                    ? `<video src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"></video>`
-                    : `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">`;
-                div.innerHTML = `${mediaHtml}<button type="button" onclick="removeSingleFile(${index})" style="position:absolute; top:-5px; right:-5px; background:#e53e3e; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center;">✕</button>`;
+            const reader = new FileReader();
+            reader.onload = e => {
+                let media = file.type.startsWith('video/') ? `<video src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;"></video>` : `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">`;
+                div.innerHTML = `${media}<button type="button" onclick="removeSingleFile(${index})" style="position:absolute; top:-5px; right:-5px; background:#e53e3e; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px;">✕</button>`;
             };
             reader.readAsDataURL(file);
-            previewGrid.appendChild(div);
+            grid.appendChild(div);
         });
-
-        const dt = new DataTransfer();
-        selectedFiles.forEach(file => dt.items.add(file));
-        document.getElementById('image-input').files = dt.files;
     }
+    function removeSingleFile(index) { selectedFiles.splice(index, 1); renderPreview(); }
+    function removeFiles() { selectedFiles = []; renderPreview(); }
 
-    function removeSingleFile(index) {
-        selectedFiles.splice(index, 1);
-        renderPreview();
-    }
-
-    function removeFiles() {
-        selectedFiles = [];
-        renderPreview();
-    }
-
-    // --- LE SLIDER (UNE SEULE VERSION) ---
     function moveSlide(postId, direction) {
         const container = document.getElementById(`carousel-${postId}`);
-        if (!container) return;
-
         const items = container.querySelectorAll('.carousel-item');
-        let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
-
-        if (activeIndex === -1) activeIndex = 0;
-
-        const currentMedia = items[activeIndex].querySelector('video');
-        if (currentMedia) {
-            currentMedia.pause();
-            currentMedia.currentTime = 0;
-        }
-
-        items[activeIndex].classList.remove('active');
-        items[activeIndex].style.display = 'none';
-
-        activeIndex += direction;
-        if (activeIndex >= items.length) activeIndex = 0;
-        if (activeIndex < 0) activeIndex = items.length - 1;
-
-        items[activeIndex].classList.add('active');
-        items[activeIndex].style.display = 'block';
-
-        const counter = container.querySelector('.carousel-counter .current');
-        if (counter) counter.innerText = activeIndex + 1;
+        let activeIdx = Array.from(items).findIndex(item => item.classList.contains('active'));
+        items[activeIdx].classList.remove('active'); items[activeIdx].style.display = 'none';
+        activeIdx = (activeIdx + direction + items.length) % items.length;
+        items[activeIdx].classList.add('active'); items[activeIdx].style.display = 'block';
+        container.querySelector('.current').innerText = activeIdx + 1;
     }
 
-    // --- CLAVIER ---
-    document.addEventListener('keydown', (e) => {
-        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-            const carousels = document.querySelectorAll('.carousel-container');
-            let closestId = null;
-            let minDistance = Infinity;
-
-            carousels.forEach(c => {
-                const rect = c.getBoundingClientRect();
-                const distance = Math.abs(rect.top);
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestId = c.id.replace('carousel-', '');
-                }
-            });
-
-            if (closestId) {
-                if (e.key === "ArrowLeft") moveSlide(closestId, -1);
-                else if (e.key === "ArrowRight") moveSlide(closestId, 1);
-            }
-        }
-    });
-
-    function updateLiveDates() {
-        const dateElements = document.querySelectorAll('.live-date');
-        dateElements.forEach(el => {
-            const timestamp = el.getAttribute('data-time');
-            if (!timestamp) return;
-            const postDate = new Date(timestamp.replace(' ', 'T') + 'Z');
-            const now = new Date();
-            const diffInSeconds = Math.floor((now - postDate) / 1000);
-            let newText = "";
-            if (diffInSeconds < 60) newText = "À l'instant";
-            else if (diffInSeconds < 3600) newText = `Il y a ${Math.floor(diffInSeconds / 60)} min`;
-            else if (diffInSeconds < 86400) newText = `Il y a ${Math.floor(diffInSeconds / 3600)} h`;
-            else return;
-            if (el.innerText !== newText) el.innerText = newText;
-        });
-    }
-
-    setInterval(updateLiveDates, 60000);
-    updateLiveDates();
-
-    window.addEventListener("load", function() {
-        const hash = window.location.hash; // Récupère par ex: #comment-45
-        if (hash && hash.startsWith('#comment-')) {
-            const targetComment = document.querySelector(hash);
-
-            if (targetComment) {
-                // 1. Ouvrir la section globale des commentaires du post
-                const parentSection = targetComment.closest('[id^="comment-section-"]');
-                if (parentSection) {
-                    parentSection.style.display = "block";
-
-                    // 2. SI c'est une réponse, déplier le conteneur de réponses parent
-                    const repliesContainer = targetComment.closest('.replies-container');
-                    if (repliesContainer) {
-                        repliesContainer.style.display = "block";
-
-                        // Mettre à jour le bouton "Voir X réponses" pour afficher "Masquer"
-                        const parentCommentId = repliesContainer.id.replace('replies-', '');
-                        const btn = document.getElementById('btn-replies-' + parentCommentId);
-                        if (btn) {
-                            btn.querySelector('span').innerText = "Masquer";
-                            btn.querySelector('svg').style.transform = "rotate(180deg)";
-                        }
-                    }
-
-                    // 3. Faire défiler et surligner proprement
-                    setTimeout(() => {
-                        targetComment.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                        // Surlignage de la bulle pour la repérer
-                        const contentBox = targetComment.querySelector('div[style*="background"]');
-                        if (contentBox) {
-                            contentBox.style.transition = "all 1s";
-                            contentBox.style.backgroundColor = "#fff3cd"; // Jaune d'accentuation
-                            setTimeout(() => {
-                                contentBox.style.backgroundColor = "#ffffff";
-                            }, 3000);
-                        }
-                    }, 500);
-                }
-            }
-        }
-    });
-
+    // CORRECTION : Clic extérieur robuste qui garde l'onglet ouvert si on clique dans la carte
     document.addEventListener('click', function(event) {
         const sections = document.querySelectorAll('[id^="comment-section-"]');
         sections.forEach(section => {
             if (section.style.display === "none") return;
             const postCard = section.closest('.post-card');
             if (!postCard.contains(event.target)) {
-                // Fermeture et repli auto via la fonction modifiée
-                const postId = section.id.replace('comment-section-', '');
-                toggleComments(postId);
+                toggleComments(section.id.replace('comment-section-', ''));
             }
         });
+    });
+
+    window.addEventListener("load", function() {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#comment-')) {
+            const target = document.querySelector(hash);
+            if (target) {
+                target.closest('[id^="comment-section-"]').style.display = "block";
+                let p = target.closest('.replies-container');
+                while(p) {
+                    p.style.display = "block";
+                    let b = document.getElementById('btn-replies-' + p.id.replace('replies-', ''));
+                    if(b) { b.querySelector('span').innerText = "Masquer"; b.querySelector('svg').style.transform = "rotate(180deg)"; }
+                    p = p.parentElement.closest('.replies-container');
+                }
+                setTimeout(() => { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); const box = target.querySelector('div[style*="background"]'); if (box) { box.style.backgroundColor = "#fff3cd"; setTimeout(() => box.style.backgroundColor = "white", 3000); }}, 500);
+            }
+        }
     });
 </script>
 {% endblock %}

@@ -19,7 +19,7 @@
         {% if notifs %}
         <div style="display: flex; flex-direction: column; gap: 12px;">
             {% for n in notifs %}
-            {% set category = 'reaction' if ('aimé' in n['message'] or 'réagi' in n['message']) else 'avis' if 'commenté' in n['message'] else 'autre' %}
+            {% set category = 'reaction' if ('aimé' in n['message'] or 'réagi' in n['message']) else 'avis' if ('commenté' in n['message'] or 'répondu' in n['message']) else 'autre' %}
 
             {# MODIFICATION ICI : On s'assure d'envoyer vers l'ID du commentaire (qu'il soit parent ou réponse) #}
             <a href="{{ url_for('view_post', post_id=n['post_id']) }}#comment-{{ n['comment_id'] }}"

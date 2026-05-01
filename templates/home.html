@@ -13,6 +13,20 @@
     .zoomable:hover {
         opacity: 0.9;
     }
+    /* Style pour la ligne verticale des réponses */
+    .replies-container {
+        margin-left: 42px;
+        margin-top: 10px;
+        border-left: 2px solid #ddd;
+        padding-left: 12px;
+    }
+    /* Style pour l'icône de flèche */
+    .arrow-icon {
+        width: 12px;
+        height: 12px;
+        transition: transform 0.2s;
+        fill: currentColor;
+    }
 </style>
 
 <aside class="sidebar">
@@ -162,21 +176,46 @@
 
         <div id="comment-section-{{ post['id'] }}" style="display: none; background: #f0f2f5; padding: 15px 20px;">
             <div id="comments-{{ post['id'] }}">
-                {% for c in comments %}{% if c['post_id'] == post['id'] %}
-                <div id="comment-{{ c['id'] }}"
-                     style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
-                    <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
-                         style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-                    <div style="display: flex; flex-direction: column;">
-                        <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                            <strong style="font-size: 0.85em; display: block; color: #1c1e21;">{{ c['username']
-                                }}</strong>
-                            <span style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
+                {% for c in comments %}{% if c['post_id'] == post['id'] and not c['parent_id'] %}
+                <div id="comment-container-{{ c['id'] }}" style="margin-bottom: 12px;">
+                    <div id="comment-{{ c['id'] }}" style="display: flex; gap: 10px; align-items: flex-start;">
+                        <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
+                             style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                        <div style="display: flex; flex-direction: column;">
+                            <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <strong style="font-size: 0.85em; display: block; color: #1c1e21;">{{ c['username'] }}</strong>
+                                <span style="font-size: 0.95em; color: #1c1e21;">{{ c['content'] }}</span>
+                            </div>
+                            <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
+                                <span class="live-date" data-time="{{ c['created_at'] }}" style="font-size: 0.7em; color: #718096;">
+                                    {{ c['created_at'] | relative_time }}
+                                </span>
+                                {% if session.get("user") %}
+                                <button onclick="showReplyForm({{ c['id'] }}, {{ post['id'] }})" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
+                                {% endif %}
+                            </div>
                         </div>
-                        <span class="live-date" data-time="{{ c['created_at'] }}"
-                              style="font-size: 0.7em; color: #718096; margin-left: 10px; margin-top: 2px;">
-                                {{ c['created_at'] | relative_time }}
-                            </span>
+                    </div>
+
+                    {% set reply_count = comments|selectattr('parent_id', 'equalto', c['id'])|list|length %}
+                    {% if reply_count > 0 %}
+                    <button id="btn-replies-{{ c['id'] }}" onclick="toggleReplies({{ c['id'] }})"
+                            style="background:none; border:none; color:#65676b; font-size:0.85em; font-weight:bold; cursor:pointer; margin-left:45px; margin-top:5px; padding:0; display:flex; align-items:center; gap:5px;">
+                        <span>Voir {{ reply_count }} réponse{{ 's' if reply_count > 1 else '' }}</span>
+                        <svg class="arrow-icon" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    </button>
+                    {% endif %}
+
+                    <div id="replies-{{ c['id'] }}" class="replies-container" style="display: none;">
+                        {% for reply in comments if reply['parent_id'] == c['id'] %}
+                        <div id="comment-{{ reply['id'] }}" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start;">
+                            <img src="{{ url_for('static', filename='avatars/' + (reply['comm_avatar'] if reply['comm_avatar'] else 'default.png')) }}"
+                                 style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
+                            <div style="background: #ffffff; padding: 6px 10px; border-radius: 15px; font-size: 0.9em; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <strong>{{ reply['username'] }}</strong> {{ reply['content'] }}
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
                 {% endif %}{% endfor %}
@@ -213,7 +252,41 @@
     // --- INTERACTIONS DE BASE ---
     function toggleComments(postId) {
         const section = document.getElementById('comment-section-' + postId);
-        section.style.display = (section.style.display === "none") ? "block" : "none";
+        const isOpening = section.style.display === "none";
+
+        if (isOpening) {
+            section.style.display = "block";
+        } else {
+            section.style.display = "none";
+            // Repli automatique de toutes les réponses du post
+            const allReplies = section.querySelectorAll('.replies-container');
+            allReplies.forEach(div => div.style.display = "none");
+            const allReplyBtns = section.querySelectorAll('[id^="btn-replies-"]');
+            allReplyBtns.forEach(btn => {
+                const cid = btn.id.replace('btn-replies-', '');
+                const count = document.getElementById('replies-' + cid).children.length;
+                btn.querySelector('span').innerText = `Voir ${count} réponse${count > 1 ? 's' : ''}`;
+                btn.querySelector('svg').style.transform = "rotate(0deg)";
+            });
+        }
+    }
+
+    function toggleReplies(commentId) {
+        const repliesDiv = document.getElementById('replies-' + commentId);
+        const btn = document.getElementById('btn-replies-' + commentId);
+        const textSpan = btn.querySelector('span');
+        const svg = btn.querySelector('svg');
+
+        if (repliesDiv.style.display === "none") {
+            repliesDiv.style.display = "block";
+            textSpan.innerText = "Masquer";
+            svg.style.transform = "rotate(180deg)";
+        } else {
+            repliesDiv.style.display = "none";
+            const count = repliesDiv.children.length;
+            textSpan.innerText = `Voir ${count} réponse${count > 1 ? 's' : ''}`;
+            svg.style.transform = "rotate(0deg)";
+        }
     }
 
     function react(postId, type) {
@@ -223,6 +296,55 @@
             return res.json();
         })
         .then(data => { if (data) document.getElementById("thumbs-" + postId).innerText = data.thumb; });
+    }
+
+    // --- NOUVELLES FONCTIONS DE RÉPONSE ---
+    function showReplyForm(commentId, postId) {
+        if (document.getElementById('reply-form-' + commentId)) return;
+        let container = document.getElementById('comment-container-' + commentId);
+        let formHtml = `
+            <form id="reply-form-${commentId}" onsubmit="addReply(event, ${postId}, ${commentId})" style="display: flex; gap: 8px; margin: 10px 0 10px 45px;">
+                <input id="reply-input-${commentId}" placeholder="Votre réponse..." style="flex: 1; background: white; border: 1px solid #ddd; border-radius: 15px; padding: 5px 12px; outline: none; font-size: 0.85em;">
+                <button type="submit" style="background: none; border: none; color: #1877f2; font-weight: bold; cursor: pointer; font-size: 0.85em;">Répondre</button>
+                <button type="button" onclick="this.parentElement.remove()" style="background: none; border: none; color: #718096; cursor: pointer; font-size: 0.85em;">Annuler</button>
+            </form>`;
+        container.insertAdjacentHTML('beforeend', formHtml);
+        document.getElementById('reply-input-' + commentId).focus();
+    }
+
+    function addReply(event, postId, parentId) {
+        event.preventDefault();
+        let input = document.getElementById("reply-input-" + parentId);
+        if (!input.value.trim()) return;
+
+        fetch("/comment/" + postId, {
+            method: "POST",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: `content=${encodeURIComponent(input.value)}&parent_id=${parentId}`
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.username) {
+                let repliesDiv = document.getElementById("replies-" + parentId);
+                let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
+                repliesDiv.style.display = "block";
+                repliesDiv.innerHTML += `
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start;">
+                        <img src="/static/avatars/${userAvatar}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
+                        <div style="background: #ffffff; padding: 6px 10px; border-radius: 15px; font-size: 0.9em; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <strong>${data.username}</strong> ${data.content}
+                        </div>
+                    </div>`;
+                let btn = document.getElementById('btn-replies-' + parentId);
+                if (btn) {
+                    btn.querySelector('span').innerText = "Masquer";
+                    btn.querySelector('svg').style.transform = "rotate(180deg)";
+                }
+                document.getElementById('reply-form-' + parentId).remove();
+                let countEl = document.getElementById("comment-count-" + postId);
+                if (countEl) countEl.innerText = parseInt(countEl.innerText) + 1;
+            }
+        });
     }
 
     function addComment(event, postId) {
@@ -239,34 +361,30 @@
         .then(data => {
             if (data && data.username) {
                 let div = document.getElementById("comments-" + postId);
-
-                // RÉCUPÉRATION DE L'AVATAR DEPUIS LA SESSION
                 let userAvatar = "{{ session.get('user_avatar', 'default.png') }}";
                 const nowUTC = new Date().toISOString().replace('T', ' ').split('.')[0];
 
-                // On utilise la structure exacte de tes commentaires existants (avec ID dynamique)
                 div.innerHTML += `
-                    <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
-                        <img src="/static/avatars/${userAvatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-                        <div style="display: flex; flex-direction: column;">
-                            <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
-                                <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
+                    <div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
+                        <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start;">
+                            <img src="/static/avatars/${userAvatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                            <div style="display: flex; flex-direction: column;">
+                                <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                    <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
+                                    <span style="font-size: 0.95em; color: #1c1e21;">${data.content}</span>
+                                </div>
+                                <div style="display: flex; gap: 15px; margin-top: 2px; margin-left: 10px; align-items: center;">
+                                    <span class="live-date" data-time="${nowUTC}" style="font-size: 0.7em; color: #718096;">À l'instant</span>
+                                    <button onclick="showReplyForm(${data.comment_id}, ${postId})" style="background:none; border:none; color:#65676b; font-size:0.75em; font-weight:bold; cursor:pointer; padding:0;">Répondre</button>
+                                </div>
                             </div>
-                            <span class="live-date" data-time="${nowUTC}" style="font-size: 0.7em; color: #718096; margin-left: 10px; margin-top: 2px;">
-                                À l'instant
-                            </span>
                         </div>
+                        <div id="replies-${data.comment_id}" class="replies-container" style="display:none;"></div>
                     </div>`;
 
-                // Mise à jour du compteur de commentaires
                 let countEl = document.getElementById("comment-count-" + postId);
-                if (countEl) {
-                    countEl.innerText = parseInt(countEl.innerText) + 1;
-                }
-
+                if (countEl) countEl.innerText = parseInt(countEl.innerText) + 1;
                 input.value = "";
-                div.style.display = 'block'; // S'assure que la liste est visible
             }
         });
     }
@@ -326,37 +444,31 @@
         if (!container) return;
 
         const items = container.querySelectorAll('.carousel-item');
-        // On cherche l'élément qui possède la classe 'active'
         let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
 
         if (activeIndex === -1) activeIndex = 0;
 
-        // ARRÊTER LA VIDÉO SI ELLE EST EN TRAIN DE JOUER ---
         const currentMedia = items[activeIndex].querySelector('video');
         if (currentMedia) {
             currentMedia.pause();
-            currentMedia.currentTime = 0; // Remet la vidéo au début
+            currentMedia.currentTime = 0;
         }
 
-        // Masquer l'ancien
         items[activeIndex].classList.remove('active');
         items[activeIndex].style.display = 'none';
 
-        // Calculer le nouveau
         activeIndex += direction;
         if (activeIndex >= items.length) activeIndex = 0;
         if (activeIndex < 0) activeIndex = items.length - 1;
 
-        // Afficher le nouveau
         items[activeIndex].classList.add('active');
         items[activeIndex].style.display = 'block';
 
-        // Maj compteur
         const counter = container.querySelector('.carousel-counter .current');
         if (counter) counter.innerText = activeIndex + 1;
     }
 
-    // --- CLAVIER (UNE SEULE VERSION) ---
+    // --- CLAVIER ---
     document.addEventListener('keydown', (e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
             const carousels = document.querySelectorAll('.carousel-container');
@@ -381,60 +493,34 @@
 
     function updateLiveDates() {
         const dateElements = document.querySelectorAll('.live-date');
-
         dateElements.forEach(el => {
             const timestamp = el.getAttribute('data-time');
             if (!timestamp) return;
-
-            // On ajoute "Z" à la fin pour dire à JS : "C'est du UTC !"
             const postDate = new Date(timestamp.replace(' ', 'T') + 'Z');
             const now = new Date();
-
             const diffInSeconds = Math.floor((now - postDate) / 1000);
-
             let newText = "";
-            if (diffInSeconds < 0) {
-                newText = "À l'instant";
-            } else if (diffInSeconds < 60) {
-                newText = "À l'instant";
-            } else if (diffInSeconds < 3600) {
-                const mins = Math.floor(diffInSeconds / 60);
-                newText = `Il y a ${mins} min`;
-            } else if (diffInSeconds < 86400) {
-                const hours = Math.floor(diffInSeconds / 3600);
-                newText = `Il y a ${hours} h`;
-            } else {
-                return;
-            }
-
-            if (el.innerText !== newText) {
-                el.innerText = newText;
-            }
+            if (diffInSeconds < 60) newText = "À l'instant";
+            else if (diffInSeconds < 3600) newText = `Il y a ${Math.floor(diffInSeconds / 60)} min`;
+            else if (diffInSeconds < 86400) newText = `Il y a ${Math.floor(diffInSeconds / 3600)} h`;
+            else return;
+            if (el.innerText !== newText) el.innerText = newText;
         });
     }
 
-    // Lancer la mise à jour toutes les 60 secondes
     setInterval(updateLiveDates, 60000);
     updateLiveDates();
 
-    // EVOL : AUTO-OPEN ET SCROLL VERS LE COMMENTAIRE
     window.addEventListener("load", function() {
-        const hash = window.location.hash; // Récupère #comment-XX
+        const hash = window.location.hash;
         if (hash && hash.startsWith('#comment-')) {
             const commentEl = document.querySelector(hash);
-
             if (commentEl) {
-                // On cherche la section qui contient les commentaires pour ce post précis
                 const parentSection = commentEl.closest('[id^="comment-section-"]');
-
                 if (parentSection) {
-                    parentSection.style.display = "block"; // ON OUVRE LE VOLET
-
-                    // On attend un tout petit peu que le navigateur "réalise" que c'est affiché
+                    parentSection.style.display = "block";
                     setTimeout(() => {
                         commentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                        // Petit effet visuel pour dire "C'est ici !"
                         commentEl.style.transition = "background 1s";
                         commentEl.style.backgroundColor = "#fff3cd";
                         setTimeout(() => { commentEl.style.backgroundColor = "transparent"; }, 3000);
@@ -444,21 +530,15 @@
         }
     });
 
-    // FERMETURE AUTOMATIQUE AU CLIC À L'EXTÉRIEUR
     document.addEventListener('click', function(event) {
-        // On récupère toutes les sections de commentaires ouvertes
         const sections = document.querySelectorAll('[id^="comment-section-"]');
-
         sections.forEach(section => {
-            // On ne fait rien si la section est déjà fermée
             if (section.style.display === "none") return;
-
-            // On récupère le post complet (la carte) qui contient cette section
             const postCard = section.closest('.post-card');
-
-            // Si le clic n'est PAS dans la carte du post, on ferme la section
             if (!postCard.contains(event.target)) {
-                section.style.display = "none";
+                // Fermeture et repli auto via la fonction modifiée
+                const postId = section.id.replace('comment-section-', '');
+                toggleComments(postId);
             }
         });
     });

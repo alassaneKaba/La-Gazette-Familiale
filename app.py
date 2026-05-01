@@ -490,29 +490,39 @@ def add_comment(post_id):
     if "user" not in session:
         return jsonify({"error": "Unauthorized"}), 401
     content = request.form.get("content")
+    parent_id = request.form.get("parent_id")  # On récupère l'ID du commentaire parent s'il existe
     if not content:
         return jsonify({"error": "Empty content"}), 400
     with get_db() as db:
-        # On insère le commentaire
+        # On insère le commentaire avec son parent_id (peut être None)
         cursor = db.execute(
-            "INSERT INTO comments (post_id, username, content) VALUES (?, ?, ?)",
-            (post_id, session["user"], content)
+            "INSERT INTO comments (post_id, username, content, parent_id) VALUES (?, ?, ?, ?)",
+            (post_id, session["user"], content, parent_id)
         )
-        comment_id = cursor.lastrowid  # ON RÉCUPÈRE L'ID ICI
+        comment_id = cursor.lastrowid
+        # Notification au propriétaire du post
         owner = db.execute("SELECT username FROM posts WHERE id=?", (post_id,)).fetchone()
         if owner and owner['username'] != session['user']:
-            # ON AJOUTE comment_id DANS L'INSERT (Assure-toi d'avoir ajouté la colonne en DB avant !)
             db.execute("""
                 INSERT INTO notifications (username, sender, message, post_id, comment_id) 
                 VALUES (?, ?, ?, ?, ?)
             """, (owner['username'], session['user'], "a commenté votre publication", post_id, comment_id))
+        # SI c'est une réponse, on peut aussi notifier l'auteur du commentaire parent !
+        if parent_id:
+            parent_author = db.execute("SELECT username FROM comments WHERE id=?", (parent_id,)).fetchone()
+            if parent_author and parent_author['username'] != session['user']:
+                db.execute("""
+                    INSERT INTO notifications (username, sender, message, post_id, comment_id) 
+                    VALUES (?, ?, ?, ?, ?)
+                """, (parent_author['username'], session['user'], "a répondu à votre commentaire", post_id, comment_id))
         db.commit()
         comment_data = db.execute("SELECT created_at FROM comments WHERE id = ?", (comment_id,)).fetchone()
     return jsonify({
         "username": session["user"],
         "content": content,
         "created_at": comment_data["created_at"],
-        "comment_id": comment_id  # Utile pour le JS
+        "comment_id": comment_id,
+        "parent_id": parent_id
     })
 
 
@@ -751,7 +761,8 @@ def init_db():
                 username TEXT,
                 content TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Ajout de cette ligne
-                FOREIGN KEY (post_id) REFERENCES posts (id)
+                FOREIGN KEY (post_id) REFERENCES posts (id),
+                FOREIGN KEY (parent_id) REFERENCES comments (id) ON DELETE CASCADE
             )
         """)
         db.execute(

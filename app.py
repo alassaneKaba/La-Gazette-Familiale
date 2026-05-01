@@ -719,6 +719,22 @@ def delete_comment(comment_id):
         return jsonify({"error": str(e)}), 500
 
 
+# --- SUPPRESSION INDIVIDUELLE DE NOTIFICATION ---
+@app.route('/delete_notification/<int:notif_id>', methods=['POST'])
+@login_required
+def delete_notification(notif_id):
+    username = session['user']
+    with get_db() as db:
+        # On vérifie que la notification appartient bien à l'utilisateur actuel
+        notif = db.execute("SELECT id FROM notifications WHERE id = ? AND username = ?",
+                           (notif_id, username)).fetchone()
+        if notif:
+            db.execute("DELETE FROM notifications WHERE id = ?", (notif_id,))
+            db.commit()
+            return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Notification introuvable ou non autorisée'}), 404
+
+
 @app.route('/edit_comment/<int:comment_id>', methods=['POST'])
 @login_required
 def edit_comment(comment_id):

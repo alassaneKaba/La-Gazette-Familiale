@@ -470,13 +470,31 @@
         });
     }
 
+    function stopVideos(container) {
+        const videos = container.querySelectorAll('video');
+        videos.forEach(v => {
+            v.pause();
+            v.currentTime = 0; // Optionnel : remet la vidéo au début
+        });
+    }
+
     function moveSlide(postId, direction) {
         const container = document.getElementById(`carousel-${postId}`);
+
+        // Arrêter toutes les vidéos du carrousel avant de changer de slide
+        stopVideos(container);
+
         const items = container.querySelectorAll('.carousel-item');
         let activeIdx = Array.from(items).findIndex(item => item.classList.contains('active'));
-        items[activeIdx].classList.remove('active'); items[activeIdx].style.display = 'none';
+
+        items[activeIdx].classList.remove('active');
+        items[activeIdx].style.display = 'none';
+
         activeIdx = (activeIdx + direction + items.length) % items.length;
-        items[activeIdx].classList.add('active'); items[activeIdx].style.display = 'block';
+
+        items[activeIdx].classList.add('active');
+        items[activeIdx].style.display = 'block';
+
         container.querySelector('.current').innerText = activeIdx + 1;
     }
 

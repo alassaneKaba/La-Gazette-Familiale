@@ -211,9 +211,24 @@
     }
 
     function react(postId, type) {
-        fetch("/react/" + postId + "/" + type, { method: "POST", headers: { 'X-Requested-With': 'XMLHttpRequest' }})
-        .then(res => res.json())
-        .then(data => { if (data) document.getElementById("thumbs-" + postId).innerText = data.thumb; });
+        fetch("/react/" + postId + "/" + type, {
+            method: "POST",
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => {
+            // On redirige si c'est 401 (Unauthorized) OU 403 (Forbidden)
+            if (res.status === 401 || res.status === 403 || res.redirected) {
+                window.location.href = "/login";
+                return;
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data && data.thumb !== undefined) {
+                document.getElementById("thumbs-" + postId).innerText = data.thumb;
+            }
+        })
+        .catch(err => console.error("Erreur de réaction:", err));
     }
 
     function showReplyForm(commentId, postId, mention) {

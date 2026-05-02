@@ -15,7 +15,7 @@
         <h2 style="text-align: center; color: #2c3e50; margin-top: 0; font-size: 1.8em;">🏠 Rejoindre la Tribu</h2>
         <p style="text-align: center; color: #7f8c8d; margin-bottom: 25px; font-size: 15px;">Créez votre compte familial en un instant.</p>
 
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" enctype="multipart/form-data" id="register-form">
             <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 25px;">
                 <div style="position: relative; width: 100px; height: 100px; cursor: pointer;" onclick="document.getElementById('avatar-input').click()">
                     <div id="avatar-preview-container" style="width: 100px; height: 100px; border-radius: 50%; border: 3px dashed #cbd5e0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f8fafc;">
@@ -42,12 +42,34 @@
                 </div>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap;">
-                <input type="password" name="password" placeholder="Mot de passe" required style="flex: 1 1 180px; padding: 12px; border-radius: 10px; border: 1px solid #ddd;">
-                <input type="password" name="confirm_password" placeholder="Confirmer" required style="flex: 1 1 180px; padding: 12px; border-radius: 10px; border: 1px solid #ddd;">
+            <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                <div style="flex: 1 1 180px; position: relative;">
+                    <input type="password" id="reg_password" name="password" placeholder="Mot de passe" required
+                           style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 15px; padding-right: 40px; box-sizing: border-box;">
+                    <span onclick="toggleRegPassword('reg_password', this)"
+                          style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px; color: #718096; user-select: none; z-index: 100;">
+                        👁️
+                    </span>
+                </div>
+
+                <div style="flex: 1 1 180px; position: relative;">
+                    <input type="password" id="reg_confirm" name="confirm_password" placeholder="Confirmer" required
+                           style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 15px; padding-right: 40px; box-sizing: border-box;">
+                    <span onclick="toggleRegPassword('reg_confirm', this)"
+                          style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px; color: #718096; user-select: none; z-index: 100;">
+                        👁️
+                    </span>
+                </div>
             </div>
 
-            <button type="submit" style="width: 100%; padding: 16px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 17px; cursor: pointer;">
+            <div id="strength-container" style="display: none; margin-bottom: 20px; width: 100%;">
+                <div style="height: 6px; background: #edf2f7; border-radius: 10px; overflow: hidden; margin-bottom: 5px;">
+                    <div id="strength-bar" style="height: 100%; width: 0%; transition: 0.4s ease; background: #cbd5e0;"></div>
+                </div>
+                <div id="password-error" style="font-size: 12px; font-weight: bold; min-height: 15px; transition: 0.3s;"></div>
+            </div>
+
+            <button type="submit" id="reg_submit" style="width: 100%; padding: 16px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 17px; cursor: pointer;">
                 Créer mon compte 🚀
             </button>
         </form>
@@ -56,56 +78,133 @@
             <p style="color: #65676b;">Déjà membre ? <a href="/login" style="color: #3182ce; text-decoration: none; font-weight: bold;">Se connecter</a></p>
         </div>
     </div>
-
 </div>
 
 <script>
-// Aperçu de l'avatar et gestion du badge "+"
-function previewAvatar(input) {
-    const preview = document.getElementById('avatar-preview');
-    const placeholder = document.getElementById('avatar-placeholder');
-    const badge = document.getElementById('plus-badge');
-    const container = document.getElementById('avatar-preview-container');
-
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            preview.src = e.target.result;
-            preview.style.display = 'block';
-            placeholder.style.display = 'none';
-            badge.style.display = 'none';
-            container.style.borderStyle = 'solid';
-            container.style.borderColor = '#2ecc71';
+    // 1. Fonctions globales (chargées en premier)
+    function toggleRegPassword(inputId, iconElement) {
+        const input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            iconElement.innerText = '🙈';
+        } else {
+            input.type = 'password';
+            iconElement.innerText = '👁️';
         }
-        reader.readAsDataURL(input.files[0]);
     }
-}
 
-// Suggestions de nom d'utilisateur
-function generateSuggestions() {
-    const fname = document.getElementById('fname').value.toLowerCase().trim().replace(/\s+/g, '');
-    const lname = document.getElementById('lname').value.toLowerCase().trim().replace(/\s+/g, '');
-    const box = document.getElementById('suggestions-box');
-    const list = document.getElementById('suggestions-list');
-    const unameInput = document.getElementById('uname');
+    function previewAvatar(input) {
+        const preview = document.getElementById('avatar-preview');
+        const placeholder = document.getElementById('avatar-placeholder');
+        const badge = document.getElementById('plus-badge');
+        const container = document.getElementById('avatar-preview-container');
 
-    if (fname.length >= 2 || lname.length >= 2) {
-        box.style.display = 'block';
-        const opts = [`${fname}${lname}`, `${lname}${fname}`, `${fname}_${lname}`, `${fname.charAt(0)}${lname}`];
-        const uniqueOpts = [...new Set(opts)].filter(o => o.length > 2);
-
-        list.innerHTML = '';
-        uniqueOpts.forEach(opt => {
-            const span = document.createElement('span');
-            span.innerText = opt;
-            span.style = "background: #f0f2f5; color: #3182ce; padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; font-weight: bold; border: 1px solid #ddd;";
-            span.onclick = () => { unameInput.value = opt; };
-            list.appendChild(span);
-        });
-    } else {
-        box.style.display = 'none';
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                placeholder.style.display = 'none';
+                badge.style.display = 'none';
+                container.style.borderStyle = 'solid';
+                container.style.borderColor = '#2ecc71';
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
     }
-}
+
+    function generateSuggestions() {
+        const fname = document.getElementById('fname').value.toLowerCase().trim().replace(/\s+/g, '');
+        const lname = document.getElementById('lname').value.toLowerCase().trim().replace(/\s+/g, '');
+        const box = document.getElementById('suggestions-box');
+        const list = document.getElementById('suggestions-list');
+        const unameInput = document.getElementById('uname');
+
+        if (fname.length >= 2 || lname.length >= 2) {
+            box.style.display = 'block';
+            const opts = [`${fname}${lname}`, `${lname}${fname}`, `${fname}_${lname}`, `${fname.charAt(0)}${lname}`];
+            const uniqueOpts = [...new Set(opts)].filter(o => o.length > 2);
+
+            list.innerHTML = '';
+            uniqueOpts.forEach(opt => {
+                const span = document.createElement('span');
+                span.innerText = opt;
+                span.style = "background: #f0f2f5; color: #3182ce; padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; font-weight: bold; border: 1px solid #ddd;";
+                span.onclick = () => { unameInput.value = opt; };
+                list.appendChild(span);
+            });
+        } else {
+            box.style.display = 'none';
+        }
+    }
+
+    // 2. Initialisation DOM
+    document.addEventListener('DOMContentLoaded', function() {
+        const password = document.getElementById('reg_password');
+        const confirm = document.getElementById('reg_confirm');
+        const errorMsg = document.getElementById('password-error');
+        const strengthBar = document.getElementById('strength-bar');
+        const strengthContainer = document.getElementById('strength-container');
+        const submitBtn = document.getElementById('reg_submit');
+
+        function checkStrength(p) {
+            let force = 0;
+            if (p.length >= 6) force++;
+            if (p.length >= 10) force++;
+            if (/[A-Z]/.test(p)) force++;
+            if (/[0-9]/.test(p)) force++;
+            if (/[^A-Za-z0-9]/.test(p)) force++;
+            return force;
+        }
+
+        function validate() {
+            const pVal = password.value;
+            const cVal = confirm.value;
+            const score = checkStrength(pVal);
+
+            strengthContainer.style.display = pVal.length > 0 ? "block" : "none";
+
+            let color = "#cbd5e0";
+            let width = "0%";
+            let text = "";
+
+            if (score <= 2) { color = "#e53e3e"; width = "33%"; text = "⚠️ Mot de passe faible"; }
+            else if (score <= 4) { color = "#ecc94b"; width = "66%"; text = "🟠 Mot de passe moyen"; }
+            else { color = "#2ecc71"; width = "100%"; text = "✅ Mot de passe fort"; }
+
+            strengthBar.style.backgroundColor = color;
+            strengthBar.style.width = width;
+            errorMsg.style.color = color;
+            errorMsg.innerText = text;
+
+            password.style.borderColor = "#ddd";
+            confirm.style.borderColor = "#ddd";
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = "1";
+
+            if (pVal.length < 6) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = "0.5";
+                if(pVal.length > 0) {
+                    errorMsg.innerText = "❌ Minimum 6 caractères";
+                    errorMsg.style.color = "#e53e3e";
+                }
+            } else if (cVal.length > 0) {
+                if (pVal !== cVal) {
+                    confirm.style.borderColor = "#e53e3e";
+                    errorMsg.innerText = "❌ Les mots de passe ne correspondent pas";
+                    errorMsg.style.color = "#e53e3e";
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = "0.5";
+                } else {
+                    confirm.style.borderColor = "#2ecc71";
+                }
+            }
+        }
+
+        password.addEventListener('input', validate);
+        confirm.addEventListener('input', validate);
+    });
 </script>
 
 {% endblock %}

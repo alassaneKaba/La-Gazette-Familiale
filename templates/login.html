@@ -26,11 +26,17 @@
                        style="width: 100%; padding: 14px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #f8fafc; box-sizing: border-box; font-size: 15px;">
             </div>
 
-            <div style="margin-bottom: 25px; text-align: left;">
+            <div style="margin-bottom: 25px; text-align: left; position: relative;">
                 <label style="font-size: 13px; color: #4a5568; font-weight: bold; margin-left: 5px;">Mot de
                     passe</label>
-                <input type="password" name="password" placeholder="••••••••" required
-                       style="width: 100%; padding: 14px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #f8fafc; box-sizing: border-box; font-size: 15px;">
+                <div style="position: relative;">
+                    <input type="password" name="password" id="login-password" placeholder="••••••••" required
+                           style="width: 100%; padding: 14px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #f8fafc; box-sizing: border-box; font-size: 15px; padding-right: 45px;">
+                    <span onclick="togglePassword('login-password', this)"
+                          style="position: absolute; right: 15px; top: 58%; transform: translateY(-50%); cursor: pointer; font-size: 18px; color: #718096; user-select: none;">
+                        👁️
+                    </span>
+                </div>
             </div>
 
             <button type="submit"
@@ -49,4 +55,16 @@
     </div>
 
 </div>
+<script>
+    function togglePassword(inputId, iconElement) {
+        const passwordInput = document.getElementById(inputId);
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            iconElement.innerText = '🙈'; // Icône quand le mot de passe est visible
+        } else {
+            passwordInput.type = 'password';
+            iconElement.innerText = '👁️'; // Icône quand le mot de passe est masqué
+        }
+    }
+</script>
 {% endblock %}

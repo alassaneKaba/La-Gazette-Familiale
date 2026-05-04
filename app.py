@@ -24,12 +24,14 @@ app.config['MAIL_DEFAULT_SENDER'] = ('La Gazette Familiale', 'alassanekaba2008@g
 
 mail = Mail(app)
 
-def send_async_email(app, msg):
-    with app.app_context():
+def send_async_email(flask_app, msg):
+    print("THREAD: Tentative d'envoi lancée...")
+    with flask_app.app_context():
         try:
             mail.send(msg)
+            print("THREAD: Email envoyé avec succès !")
         except Exception as e:
-            print(f"Erreur envoi mail : {e}")
+            print(f"THREAD ERREUR: {e}")
 
 # Configuration des dossiers
 UPLOAD_FOLDER = "static/uploads"
@@ -217,9 +219,9 @@ def approve_user(user_id):
         <p><a href="{login_url}" style="padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Se connecter à La Gazette</a></p>
         <p>À très vite !</p>
         """
-        thread = threading.Thread(target=send_async_email, args=(app, msg))
+        thread = threading.Thread(target=send_async_email, args=(app._get_current_object(), msg))
         thread.start()
-        flash(f"Utilisateur {user['firstname']} approuvé.", "success")
+        flash(f"Utilisateur {user['firstname']} approuvé. Un mail vous a été envoyé !", "success")
     return redirect("/admin/users")
 
 

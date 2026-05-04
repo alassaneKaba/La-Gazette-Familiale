@@ -210,10 +210,8 @@ def approve_user(user_id):
         try:
             # 1. On valide d'abord dans la base de données
             query_db("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
-            # 2. Préparation du lien AVANT de configurer le mail
-            # On construit le lien manuellement pour éviter tout bug de l'objet request
-            base_url = request.host_url.rstrip('/')
-            login_url = f"{base_url}/login"
+            # 2. Préparation du lien et du message
+            login_url = request.host_url + "login"
             # 3. Création du message
             msg = Message("Bienvenue dans la tribu ! ✅", recipients=[user['email']])
             msg.html = f"""
@@ -224,15 +222,14 @@ def approve_user(user_id):
             <p><a href="{login_url}" style="padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Se connecter à La Gazette</a></p>
             <p>À très vite !</p>
             """
-            # 4. Lancement du Thread avec l'instance de l'app
-            # On utilise une copie de l'app pour le thread
-            app_instance = app._get_current_object()
-            thr = threading.Thread(target=send_async_email, args=(app_instance, msg))
+            # 3. Lancement du Thread de manière simple
+            # On passe directement 'app' qui est ton objet Flask global
+            thr = threading.Thread(target=send_async_email, args=(app, msg))
+            thr.daemon = True  # Optionnel: assure que le thread ne bloque pas l'arrêt du serveur
             thr.start()
-            flash(f"Utilisateur {user['firstname']} approuvé avec succès !", "success")
+            flash(f"Utilisateur {user['firstname']} approuvé !", "success")
         except Exception as e:
-            # ICI : On imprime l'erreur réelle dans les logs Render pour que tu puisses me la donner
-            print(f"ERREUR APPROBATION ROUTE: {str(e)}")
+            print(f"ERREUR DANS LA ROUTE: {str(e)}")
             flash(f"Erreur lors de l'approbation : {str(e)}", "danger")
     return redirect("/admin/users")
 

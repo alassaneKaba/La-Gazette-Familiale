@@ -1,70 +1,143 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); align-items: center; justify-items: center; min-height: 80vh; padding: 60px 20px; gap: 100px; max-width: 1200px; margin: 0 auto;">
+<div class="login-page-container">
 
-    <div style="text-align: left; box-sizing: border-box; max-width: 500px;">
-        <span style="font-size: 60px; display: block; margin-bottom: 10px;">👨‍👩‍👧‍👦</span>
-        <h1 style="color: #2c3e50; font-size: 3.2em; margin: 0; line-height: 1.1; font-weight: 800;">La Gazette
-            Familiale</h1>
-        <p style="color: #718096; font-size: 1.4em; line-height: 1.6; margin-top: 20px;">
-            Connectez-vous pour découvrir les dernières nouvelles partagées par vos proches.
-        </p>
+    <div class="login-hero">
+        <span class="hero-emoji">👨‍👩‍👧‍👦</span>
+        <h1>La Gazette Familiale</h1>
+        <p>Connectez-vous pour découvrir les dernières nouvelles partagées par vos proches.</p>
     </div>
 
-    <div class="post-card"
-         style="width: 100%; max-width: 450px; padding: 40px; border-top: 5px solid #3182ce; box-shadow: 0 10px 25px rgba(0,0,0,0.05); box-sizing: border-box; text-align: center; background: white; border-radius: 15px;">
-        <div style="font-size: 50px; margin-bottom: 10px;">🔑</div>
-        <h2 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.8em;">Heureux de vous revoir !</h2>
-        <p style="color: #7f8c8d; margin-bottom: 30px; font-size: 15px;">Entrez vos accès pour retrouver la tribu.</p>
+    <div class="login-card">
+        <div class="card-header">
+            <span class="lock-emoji">🔑</span>
+            <h2>Heureux de vous revoir !</h2>
+            <p>Entrez vos accès pour retrouver la tribu.</p>
+        </div>
 
-        <form method="POST">
-            <div style="margin-bottom: 20px; text-align: left;">
-                <label style="font-size: 13px; color: #4a5568; font-weight: bold; margin-left: 5px;">Adresse
-                    e-mail</label>
-                <input type="email" name="email" placeholder="ex: papa@mail.com" required
-                       style="width: 100%; padding: 14px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #f8fafc; box-sizing: border-box; font-size: 15px;">
+        <form method="POST" id="loginForm">
+            <div class="form-group">
+                <label>Adresse e-mail</label>
+                <input type="email" name="email" placeholder="ex: papa@mail.com" required>
             </div>
 
-            <div style="margin-bottom: 25px; text-align: left; position: relative;">
-                <label style="font-size: 13px; color: #4a5568; font-weight: bold; margin-left: 5px;">Mot de
-                    passe</label>
-                <div style="position: relative;">
-                    <input type="password" name="password" id="login-password" placeholder="••••••••" required
-                           style="width: 100%; padding: 14px; margin-top: 5px; border: 1px solid #ddd; border-radius: 10px; background: #f8fafc; box-sizing: border-box; font-size: 15px; padding-right: 45px;">
-                    <span onclick="togglePassword('login-password', this)"
-                          style="position: absolute; right: 15px; top: 58%; transform: translateY(-50%); cursor: pointer; font-size: 18px; color: #718096; user-select: none;">
-                        👁️
-                    </span>
+            <div class="form-group">
+                <label>Mot de passe</label>
+                <div class="password-wrapper">
+                    <input type="password" name="password" id="login-password" placeholder="••••••••" required>
+                    <span class="toggle-eye" onclick="togglePassword('login-password', this)">👁️</span>
                 </div>
             </div>
 
-            <button type="submit"
-                    style="width: 100%; padding: 16px; background: #3182ce; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 17px; cursor: pointer;">
-                Entrer dans la maison 🏠
+            <button type="submit" class="login-submit-btn">
+                <span>Entrer dans la maison 🏠</span>
             </button>
         </form>
 
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="font-size: 14px; color: #65676b;">
-                Pas encore inscrit ?
-                <a href="/register" style="color: #2ecc71; text-decoration: none; font-weight: bold;">Rejoindre la tribu
-                    ici</a>
+        <div class="card-footer">
+            <p>Pas encore inscrit ?
+                <a href="/register">Rejoindre la tribu ici</a>
             </p>
         </div>
     </div>
 
 </div>
+
+<style>
+    .login-page-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        min-height: 80vh;
+        gap: 60px;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+
+    /* Section Gauche (Hero) */
+    .login-hero {
+        flex: 1;
+        min-width: 320px;
+        max-width: 500px;
+    }
+    .hero-emoji { font-size: 60px; display: block; margin-bottom: 10px; }
+    .login-hero h1 { color: #2d3748; font-size: 3.2em; margin: 0; line-height: 1.1; font-weight: 800; }
+    .login-hero p { color: #718096; font-size: 1.3em; line-height: 1.5; margin-top: 20px; }
+
+    /* Section Droite (Carte) */
+    .login-card {
+        flex: 1;
+        min-width: 320px;
+        max-width: 450px;
+        background: white;
+        padding: 40px;
+        border-radius: 20px;
+        border-top: 6px solid var(--primary);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        text-align: center;
+    }
+    .lock-emoji { font-size: 50px; display: block; margin-bottom: 10px; }
+    .login-card h2 { color: #2d3748; margin: 0 0 10px 0; font-size: 1.8em; }
+    .login-card p { color: #718096; font-size: 0.95em; margin-bottom: 30px; }
+
+    /* Formulaire */
+    .form-group { text-align: left; margin-bottom: 20px; }
+    .form-group label { font-size: 13px; color: #4a5568; font-weight: 700; margin-left: 5px; display: block; margin-bottom: 5px; }
+    .form-group input {
+        width: 100%; padding: 14px; border: 1px solid #e2e8f0; border-radius: 12px;
+        background: #f8fafc; font-size: 15px; box-sizing: border-box; transition: 0.2s;
+    }
+    .form-group input:focus { outline: none; border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1); }
+
+    .password-wrapper { position: relative; }
+    .toggle-eye {
+        position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+        cursor: pointer; font-size: 18px; color: #a0aec0; user-select: none;
+    }
+
+    .login-submit-btn {
+        width: 100%; padding: 16px; background: var(--primary); color: white; border: none;
+        border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer;
+        transition: 0.3s; margin-top: 10px; box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+    }
+    .login-submit-btn:hover { background: #2b6cb0; transform: translateY(-2px); }
+    .login-submit-btn:active { transform: translateY(0); }
+
+    .card-footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #edf2f7; }
+    .card-footer a { color: var(--success); text-decoration: none; font-weight: 700; }
+    .card-footer a:hover { text-decoration: underline; }
+
+    /* Mobile */
+    @media (max-width: 800px) {
+        .login-page-container { padding: 20px; gap: 30px; }
+        .login-hero { text-align: center; }
+        .login-hero h1 { font-size: 2.2em; }
+        .login-hero p { font-size: 1.1em; }
+        .login-card { padding: 30px 20px; }
+    }
+</style>
+
 <script>
     function togglePassword(inputId, iconElement) {
         const passwordInput = document.getElementById(inputId);
         if (passwordInput.type === 'password') {
             passwordInput.type = 'text';
-            iconElement.innerText = '🙈'; // Icône quand le mot de passe est visible
+            iconElement.innerText = '🙈';
         } else {
             passwordInput.type = 'password';
-            iconElement.innerText = '👁️'; // Icône quand le mot de passe est masqué
+            iconElement.innerText = '👁️';
         }
     }
+
+    // Petit effet de chargement au clic
+    document.getElementById('loginForm').onsubmit = function() {
+        const btn = this.querySelector('.login-submit-btn');
+        btn.style.opacity = '0.7';
+        btn.style.pointerEvents = 'none';
+        btn.innerHTML = 'Connexion en cours...';
+    };
 </script>
 {% endblock %}

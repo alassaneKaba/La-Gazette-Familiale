@@ -20,6 +20,7 @@
             background-color: var(--bg-color);
             margin: 0;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--text-main);
         }
 
         /* Barre de navigation */
@@ -55,23 +56,26 @@
 
         .nav-item:hover { background: #f7fafc; color: var(--primary); }
 
-        /* Conteneur principal avec GRILLE */
+        /* Conteneur principal */
         .main-container {
             max-width: 1100px;
             margin: 0 auto;
             padding: 20px 15px;
-            display: grid;
-            grid-template-columns: 1fr; /* 1 seule colonne par défaut (mobile) */
-            gap: 25px;
-            align-items: start;
             box-sizing: border-box;
         }
 
-        /* GRILLE POUR PC */
+        /* GRILLE POUR PC (Appliquée uniquement si nécessaire, ou gérée dans les blocks) */
+        /* Correction : On laisse le contenu décider de sa grille pour ne pas casser le Register/Login */
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+            align-items: start;
+        }
+
         @media (min-width: 900px) {
-            .main-container {
-                grid-template-columns: 280px 650px; /* On fixe les colonnes */
-                justify-content: center;
+            .grid-layout {
+                grid-template-columns: 280px 1fr;
             }
         }
 
@@ -86,79 +90,32 @@
         }
 
         /* Flash Messages */
-        .flash-messages {
-            grid-column: 1 / -1; /* Occupe toute la largeur de la grille */
-        }
         .flash-msg {
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 20px;
             text-align: center;
             font-weight: 600;
+            animation: fadeIn 0.5s ease-in;
         }
-        .flash-info { background: #ebf8ff; color: #2a4365; }
-        .flash-success { background: #c6f6d5; color: #22543d; }
-        .flash-danger { background: #fed7d7; color: #822727; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .flash-info { background: #ebf8ff; color: #2a4365; border: 1px solid #bee3f8; }
+        .flash-success { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+        .flash-danger { background: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
 
         /* AJUSTEMENTS MOBILE  */
         @media (max-width: 800px) {
-            /* --- 1. CONTENU (Messages / Cartes) --- */
-            div[style*="display: grid"],
-            .main-container {
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                gap: 30px !important;
-                padding: 20px 10px !important;
-            }
+            .nav-text { display: none !important; }
+            .nav-content { padding: 5px 10px !important; }
+            .nav-left span { font-size: 20px !important; }
+            .nav-text-container { display: none !important; } /* On cache le titre texte sur mobile pour gagner de la place */
 
-            /* On s'assure que la carte ne dépasse pas la largeur du téléphone */
-            .post-card, div[style*="max-width: 450px"], div[style*="max-width: 480px"] {
-                width: 100% !important;
-                max-width: 100% !important;
-                box-sizing: border-box !important;
-            }
-
-            /* --- 2. BARRE DE NAVIGATION (NAVBAR) --- */
-            .nav-content {
-                padding: 5px 4px !important; /* Réduction extrême des bords */
-                gap: 2px !important;
-            }
-
-            /* On réduit la taille du logo au strict minimum */
-            .nav-left span {
-                font-size: 16px !important;
-            }
-
-            /* ON CACHE LE TEXTE POUR NE GARDER QUE LES ICÔNES */
-            /* Cela libère énormément de place pour le bouton Déconnecter/Rejoindre */
-            .nav-item .nav-text,
-            .nav-item span:not(.admin-badge) {
-                display: none !important;
-            }
-
-            /* Ajustement des boutons de droite (Rejoindre / Déconnecter) */
-            .nav-right {
-                gap: 3px !important;
-            }
-
-            .nav-right a {
-                padding: 5px 8px !important;
-                font-size: 11px !important; /* On baisse encore un peu la taille */
-                letter-spacing: -0.5px;      /* On resserre les lettres */
-                white-space: nowrap !important;
-            }
-
-            /* Si c'est le bouton bleu "Rejoindre" */
-            .nav-right a[href="/register"], .nav-right a.btn-primary {
-                padding: 5px 6px !important;
-            }
-
-            /* Si c'est le bouton rouge "Déconnecter" */
             .nav-right a[href="/logout"] {
-                background: #fff5f5 !important;
-                color: #e53e3e !important;
-                font-weight: bold !important;
+                font-size: 11px !important;
+                padding: 5px !important;
+                background: #fff5f5;
+                border-radius: 5px;
             }
         }
     </style>
@@ -172,44 +129,44 @@
         <div class="nav-left">
             <a href="/" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 28px;">🌳</span>
-                <div class="nav-text-container" style="display: flex; flex-direction: column;">
-                    <span style="font-size: 1.2em; font-weight: 800; color: #1a202c; line-height: 1;">La Gazette</span>
-                    <span style="font-size: 0.9em; font-weight: 600; color: var(--primary); line-height: 1;">Familiale</span>
+                <div class="nav-text-container">
+                    <span style="font-size: 1.2em; font-weight: 800; color: #1a202c; display: block; line-height: 1;">La Gazette</span>
+                    <span style="font-size: 0.9em; font-weight: 600; color: var(--primary); display: block; line-height: 1;">Familiale</span>
                 </div>
             </a>
         </div>
 
         <div class="nav-right" style="display: flex; align-items: center; gap: 5px;">
-            <a href="/" class="nav-item">🏠 <span class="nav-text" style="margin-left:5px;">Accueil</span></a>
+            <a href="/" class="nav-item" title="Accueil">🏠 <span class="nav-text" style="margin-left:5px;">Accueil</span></a>
 
             {% if session.get("user") %}
-            {% if session.get('is_admin') %}
-            <a href="/admin/users" class="nav-item"
-               style="background: #ebf8ff; color: var(--primary); border: 1px solid #bee3f8; margin-right: 5px;">
-                🛡️ <span class="nav-text" style="margin-left:5px;">Admin</span>
-                {% if pending_count and pending_count > 0 %}
-                <span class="admin-badge">{{ pending_count }}</span>
+                {% if session.get('is_admin') %}
+                <a href="/admin/users" class="nav-item" style="background: #ebf8ff; color: var(--primary); border: 1px solid #bee3f8;">
+                    🛡️ <span class="nav-text" style="margin-left:5px;">Admin</span>
+                    {% if pending_count and pending_count > 0 %}
+                    <span class="admin-badge">{{ pending_count }}</span>
+                    {% endif %}
+                </a>
                 {% endif %}
-            </a>
-            {% endif %}
-            <a href="{{ url_for('profile', username=session['user']) }}" class="nav-item">👤 <span class="nav-text"
-                                                                                                  style="margin-left:5px;">Profil</span></a>
-            <a href="/notifications" class="nav-item" style="position: relative;">
-                🔔
-                {% if unread_count > 0 %}
-                <span style="background: #e53e3e; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; position: absolute; top: -5px; right: -5px; font-weight: bold; border: 2px solid white;">
-                                {{ unread_count }}
-                            </span>
-                {% endif %}
-            </a>
-            <a href="/settings" class="nav-item">⚙️</a>
-            <a href="/logout"
-               style="color: var(--danger); text-decoration: none; font-weight: 700; font-size: 0.9em; margin-left:10px; padding: 8px;">Déconnecter</a>
+
+                <a href="{{ url_for('profile', username=session['user']) }}" class="nav-item" title="Mon Profil">👤 <span class="nav-text" style="margin-left:5px;">Profil</span></a>
+
+                <a href="/notifications" class="nav-item" style="position: relative;" title="Notifications">
+                    🔔
+                    {% if unread_count and unread_count > 0 %}
+                    <span style="background: #e53e3e; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; position: absolute; top: -2px; right: -2px; font-weight: bold; border: 2px solid white;">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+                </a>
+
+                <a href="/settings" class="nav-item" title="Paramètres">⚙️</a>
+
+                <a href="/logout" style="color: var(--danger); text-decoration: none; font-weight: 700; font-size: 0.85em; margin-left:5px; padding: 8px; border: 1px solid transparent;" onmouseover="this.style.borderColor='var(--danger)'; this.style.borderRadius='10px'" onmouseout="this.style.borderColor='transparent'">Déconnexion</a>
 
             {% else %}
-            <a href="/login" class="nav-item">Connexion</a>
-            <a href="/register"
-               style="background: var(--primary); color: white; padding: 8px 16px; border-radius: 10px; text-decoration: none; font-weight: 700; margin-left: 10px;">Rejoindre</a>
+                <a href="/login" class="nav-item">Connexion</a>
+                <a href="/register" style="background: var(--primary); color: white; padding: 8px 16px; border-radius: 10px; text-decoration: none; font-weight: 700; margin-left: 10px;">Rejoindre</a>
             {% endif %}
         </div>
     </div>
@@ -218,18 +175,33 @@
 <div class="main-container">
     <div class="flash-messages">
         {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        {% for category, message in messages %}
-        <div class="flash-msg flash-{{ category }}">
-            {{ message }}
-        </div>
-        {% endfor %}
-        {% endif %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="flash-msg flash-{{ category }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
         {% endwith %}
     </div>
 
-    {% block content %}{% endblock %}
+    {# On enveloppe le contenu dans une div qui peut devenir une grille si besoin #}
+    <div class="{% if request.path == '/' or request.path == '/home' %}grid-layout{% endif %}">
+        {% block content %}{% endblock %}
+    </div>
 </div>
+
+<script>
+    // Petite fonction pour auto-fermer les flash messages après 5 secondes
+    setTimeout(function() {
+        const flashes = document.querySelectorAll('.flash-msg');
+        flashes.forEach(f => {
+            f.style.transition = "opacity 0.5s ease";
+            f.style.opacity = "0";
+            setTimeout(() => f.remove(), 500);
+        });
+    }, 5000);
+</script>
 
 </body>
 </html>

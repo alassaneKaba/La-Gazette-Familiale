@@ -5,7 +5,7 @@
 {% macro render_comment(c, post_id, all_comments) %}
 <div id="comment-container-{{ c['id'] }}" style="margin-bottom: 12px;">
     <div id="comment-{{ c['id'] }}" style="display: flex; gap: 10px; align-items: flex-start;">
-        <img src="{{ url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
+        <img src="{{ c['comm_avatar'] if c['comm_avatar'] and c['comm_avatar'].startswith('http') else url_for('static', filename='avatars/' + (c['comm_avatar'] if c['comm_avatar'] else 'default.png')) }}"
              style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
         <div style="display: flex; flex-direction: column; max-width: 85%;">
             <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
@@ -43,7 +43,7 @@
         <button id="btn-replies-{{ c['id'] }}" onclick="toggleReplies({{ c['id'] }})"
                 style="background:none; border:none; color:#65676b; font-size:0.85em; font-weight:bold; cursor:pointer; margin-left:45px; margin-top:5px; padding:0; display:flex; align-items:center; gap:5px;">
             <span>Voir {{ replies | length }} réponse{{ 's' if replies|length > 1 else '' }}</span>
-            <svg class="arrow-icon" viewBox="0 0 20 20" style="width:12px; height:12px; transition: transform 0.2s; fill: currentColor;"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+            <svg class="arrow-icon" viewBox="0 0 20 20" style="width:12px; height:12px; transition: transform 0.2s; fill: currentColor;"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
         </button>
         {% endif %}
     </div>
@@ -121,7 +121,7 @@
         <div style="padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <a href="{{ url_for('profile', username=post['username']) }}">
-                    <img src="{{ url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                    <img src="{{ post['user_avatar'] if post['user_avatar'] and post['user_avatar'].startswith('http') else url_for('static', filename='avatars/' + (post['user_avatar'] if post['user_avatar'] else 'default.png')) }}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
                 </a>
                 <div>
                     <a href="{{ url_for('profile', username=post['username']) }}" style="text-decoration: none;">
@@ -152,9 +152,9 @@
                 {% for media in post.medias %}
                 <div class="carousel-item {% if loop.first %}active{% endif %}" style="display: {% if loop.first %}block{% else %}none{% endif %}; text-align: center;">
                     {% if media.file_type == 'video' %}
-                    <video src="{{ url_for('static', filename='uploads/' + media.filename) }}" controls style="max-width: 100%; max-height: 500px; display: block; margin: 0 auto;"></video>
+                    <video src="{{ media.filename }}" controls style="max-width: 100%; max-height: 500px; display: block; margin: 0 auto;"></video>
                     {% else %}
-                    <img src="{{ url_for('static', filename='uploads/' + media.filename) }}" class="zoomable" onclick="openLightbox(this.src)" style="cursor: zoom-in;">
+                    <img src="{{ media.filename }}" class="zoomable" onclick="openLightbox(this.src)" style="cursor: zoom-in;">
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -408,7 +408,7 @@
                 repliesDiv.insertAdjacentHTML('beforeend', `
                 <div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
                     <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; align-items: flex-start;">
-                        <img src="/static/avatars/{{ session.get('user_avatar', 'default.png') }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                        <img src="{{ session.get('user_avatar', '') if session.get('user_avatar', '').startswith('http') else url_for('static', filename='avatars/' + session.get('user_avatar', 'default.png')) }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                         <div style="display: flex; flex-direction: column;">
                             <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                                 <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
@@ -445,7 +445,7 @@
                 commentsDiv.insertAdjacentHTML('beforeend', `
                 <div id="comment-container-${data.comment_id}" style="margin-bottom: 12px;">
                     <div id="comment-${data.comment_id}" style="display: flex; gap: 10px; align-items: flex-start;">
-                        <img src="/static/avatars/{{ session.get('user_avatar', 'default.png') }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                        <img src="{{ session.get('user_avatar', '') if session.get('user_avatar', '').startswith('http') else url_for('static', filename='avatars/' + session.get('user_avatar', 'default.png')) }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                         <div style="display: flex; flex-direction: column;">
                             <div style="background: white; padding: 8px 12px; border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                                 <strong style="font-size: 0.85em; display: block; color: #1c1e21;">${data.username}</strong>
@@ -488,14 +488,15 @@
         let activeIdx = Array.from(items).findIndex(item => item.classList.contains('active'));
 
         items[activeIdx].classList.remove('active');
-        items[activeIdx].style.display = 'none';
+        items[activeIdx].style.display = "none";
 
         activeIdx = (activeIdx + direction + items.length) % items.length;
 
         items[activeIdx].classList.add('active');
-        items[activeIdx].style.display = 'block';
+        items[activeIdx].style.display = "block";
 
-        container.querySelector('.current').innerText = activeIdx + 1;
+        const counter = container.querySelector('.carousel-counter .current');
+        if (counter) counter.innerText = activeIdx + 1;
     }
 
     document.addEventListener('click', function(event) {

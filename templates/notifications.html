@@ -1,16 +1,18 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: 1fr 300px; gap: 30px; max-width: 1100px; margin: 30px auto; padding: 0 20px;">
-    <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: #f8fafc; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-            <h2 style="margin: 0; color: #2d3748; font-size: 1.5em; display: flex; align-items: center; gap: 10px;">
-                <span style="background: white; padding: 5px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">🔔</span>
+{# Utilisation de la classe grid-layout définie dans base.html ou style personnalisé ici #}
+<div class="notifications-grid" style="display: grid; grid-template-columns: 1fr 320px; gap: 30px; max-width: 1100px; margin: 0 auto; align-items: start;">
+
+    <div class="notifications-main">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: white; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <h2 style="margin: 0; color: #2d3748; font-size: 1.4em; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2em;">🔔</span>
                 Notifications
             </h2>
             {% if notifs %}
             <a href="{{ url_for('mark_all_read') }}"
-               style="text-decoration: none; color: #3182ce; font-size: 0.85em; font-weight: 700; background: white; border: 1px solid #bee3f8; padding: 8px 15px; border-radius: 10px; transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+               style="text-decoration: none; color: #3182ce; font-size: 0.85em; font-weight: 700; background: #ebf8ff; border: 1px solid #bee3f8; padding: 8px 15px; border-radius: 10px; transition: 0.3s;">
                 Tout marquer comme lu
             </a>
             {% endif %}
@@ -19,34 +21,44 @@
         {% if notifs %}
         <div style="display: flex; flex-direction: column; gap: 12px;" id="notifs-container">
             {% for n in notifs %}
-            {% set category = 'reaction' if ('aimé' in n['message'] or 'réagi' in n['message']) else 'avis' if ('commenté' in n['message'] or 'répondu' in n['message']) else 'autre' %}
+            {# Logique de catégorie améliorée #}
+            {% set msg = n['message']|lower %}
+            {% set category = 'reaction' if ('aimé' in msg or 'réagi' in msg) else 'avis' if ('commenté' in msg or 'répondu' in msg) else 'autre' %}
 
             <div class="notif-wrapper" style="position: relative;" id="notif-container-{{ n['id'] }}">
-                <a href="{{ url_for('view_post', post_id=n['post_id']) }}#comment-{{ n['comment_id'] }}"
+                <a href="{{ url_for('view_post', post_id=n['post_id']) }}{% if n['comment_id'] %}#comment-{{ n['comment_id'] }}{% endif %}"
                    class="notif-item"
                    data-type="{{ category }}"
                    style="text-decoration: none; color: inherit; display: block;">
+
                     <div class="post-card"
-                         style="margin-bottom: 0; padding: 18px; display: flex; align-items: center; gap: 20px; border-left: 5px solid {% if n['is_read'] == 0 %}#3182ce{% else %}#e2e8f0{% endif %}; {% if n['is_read'] == 0 %} background: #f7fafc; {% endif %}">
-                        <div style="font-size: 28px; background: white; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                            {% if category == 'reaction' %} 👍
-                            {% elif category == 'avis' %} 💬
-                            {% else %} ✨ {% endif %}
+                         style="margin-bottom: 0; padding: 15px; display: flex; align-items: center; gap: 15px; border-left: 4px solid {% if n['is_read'] == 0 %}#3182ce{% else %}#e2e8f0{% endif %}; {% if n['is_read'] == 0 %} background: #f0f7ff; {% endif %}">
+
+                        {# Avatar de l'expéditeur (plus chaleureux qu'un emoji seul) #}
+                        <div style="position: relative; flex-shrink: 0;">
+                            {% set sender_avatar = n['sender_avatar'] if n['sender_avatar'] and n['sender_avatar'].startswith('http') else url_for('static', filename='avatars/' + (n['sender_avatar'] if n['sender_avatar'] else 'default.png')) %}
+                            <img src="{{ sender_avatar }}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                            <div style="position: absolute; bottom: -2px; right: -2px; background: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                {% if category == 'reaction' %}👍{% elif category == 'avis' %}💬{% else %}✨{% endif %}
+                            </div>
                         </div>
-                        <div style="flex: 1; padding-right: 35px;">
-                            <p style="margin: 0; font-size: 1.05em; color: #2d3748;">
-                                <strong>{{ n['sender'] }}</strong> {{ n['message'] }}
+
+                        <div style="flex: 1; padding-right: 30px;">
+                            <p style="margin: 0; font-size: 0.95em; color: #2d3748; line-height: 1.4;">
+                                <strong style="color: #1a202c;">{{ n['sender'] }}</strong> {{ n['message'] }}
                             </p>
-                            <span style="font-size: 0.85em; color: #a0aec0;">
-                                         🕒 {{ n['created_at']|relative_time }}
+                            <span style="font-size: 0.8em; color: #a0aec0; display: flex; align-items: center; gap: 4px; margin-top: 4px;">
+                                🕒 {{ n['created_at']|relative_time }}
                             </span>
                         </div>
+
                         {% if n['is_read'] == 0 %}
-                        <div class="unread-dot" style="width: 10px; height: 10px; background: #3182ce; border-radius: 50%;"></div>
+                        <div class="unread-dot" style="width: 8px; height: 8px; background: #3182ce; border-radius: 50%; flex-shrink: 0;"></div>
                         {% endif %}
                     </div>
                 </a>
-                <button onclick="deleteNotification('{{ n.id }}', this)" class="delete-notif-btn" title="Supprimer">
+
+                <button onclick="deleteNotification('{{ n.id }}', this, event)" class="delete-notif-btn" title="Supprimer">
                     <span class="pc-cross">×</span>
                     <span class="mobile-trash">🗑️</span>
                 </button>
@@ -54,69 +66,54 @@
             {% endfor %}
         </div>
         {% else %}
-        <div id="empty-state" style="text-align: center; padding: 80px 20px; background: white; border-radius: 20px; border: 2px dashed #e2e8f0;">
-            <div style="font-size: 60px; margin-bottom: 20px;">🍃</div>
-            <h3 style="color: #4a5568;">C'est bien calme ici...</h3>
-            <p style="color: #a0aec0;">Vous n'avez aucune notification pour le moment.</p>
+        <div id="empty-state" style="text-align: center; padding: 60px 20px; background: white; border-radius: 20px; border: 2px dashed #e2e8f0; color: #a0aec0;">
+            <div style="font-size: 50px; margin-bottom: 15px;">🍃</div>
+            <h3 style="margin: 0; color: #4a5568;">Aucune nouvelle...</h3>
+            <p style="margin-top: 5px; font-size: 0.9em;">Revenez plus tard pour voir les interactions de la famille.</p>
         </div>
         {% endif %}
     </div>
 
-    <aside>
-        <div class="post-card" style="padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 12px 0; color: #2d3748; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">Filtrer la Gazette</h4>
+    <aside class="notifications-sidebar">
+        <div class="post-card" style="padding: 15px; background: white; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; color: #718096; font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Filtrer</h4>
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <button class="filter-btn active">Toutes</button>
-                <button class="filter-btn">👍 Réactions</button>
-                <button class="filter-btn">💬 Avis</button>
+                <button class="filter-btn active" data-filter="toutes">Toutes</button>
+                <button class="filter-btn" data-filter="reaction">👍 Réactions</button>
+                <button class="filter-btn" data-filter="avis">💬 Avis</button>
             </div>
         </div>
 
-        <div class="post-card" style="background: linear-gradient(135deg, #3182ce, #2c5282); color: white; border: none; padding: 25px; box-shadow: 0 10px 15px -3px rgba(49, 130, 206, 0.3); margin-bottom: 20px;">
-            <h4 style="margin: 0 0 15px 0; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">État de la Tribu</h4>
+        <div class="post-card" style="background: linear-gradient(135deg, #3182ce, #2c5282); color: white; border: none; padding: 20px; box-shadow: 0 10px 20px -5px rgba(49, 130, 206, 0.4); margin-bottom: 20px;">
+            <h4 style="margin: 0 0 15px 0; font-size: 0.7em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; font-weight: 800;">Activité de la Tribu</h4>
             <div style="display: flex; justify-content: space-around; align-items: center;">
                 <div style="text-align: center;">
-                    <div style="font-size: 1.8em; font-weight: 800;">{{ total_users }}</div>
-                    <div style="font-size: 0.7em; opacity: 0.8;">Plumes</div>
+                    <div style="font-size: 1.5em; font-weight: 800;">{{ total_users }}</div>
+                    <div style="font-size: 0.65em; opacity: 0.8; text-transform: uppercase;">Membres</div>
                 </div>
-                <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.2);"></div>
+                <div style="width: 1px; height: 25px; background: rgba(255,255,255,0.2);"></div>
                 <div style="text-align: center;">
-                    <div style="font-size: 1.8em; font-weight: 800;">{{ total_posts }}</div>
-                    <div style="font-size: 0.7em; opacity: 0.8;">Articles</div>
+                    <div style="font-size: 1.5em; font-weight: 800;">{{ total_posts }}</div>
+                    <div style="font-size: 0.65em; opacity: 0.8; text-transform: uppercase;">Histoires</div>
                 </div>
             </div>
         </div>
 
-        <div class="post-card" style="padding: 0; overflow: hidden; border: 1px solid #e2e8f0;">
-            <div style="background: #fffaf0; padding: 15px; border-bottom: 1px solid #feebc8;">
-                <h4 style="margin: 0; color: #9c4221; font-size: 1em; display: flex; align-items: center; gap: 8px;">🗞️ Le Petit Écho</h4>
-            </div>
-            <div style="padding: 20px; background: #f0fff4; border: 1px solid #c6f6d5; position: relative; overflow: hidden; margin: 10px;">
-                <span style="position: absolute; right: -10px; bottom: -10px; font-size: 50px; opacity: 0.1; transform: rotate(-15deg);">🌿</span>
-                <h4 style="margin: 0 0 10px 0; color: #276749; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">La Pensée du Jour</h4>
-                <p style="margin: 0; font-size: 0.95em; color: #2f855a; line-height: 1.5; font-style: italic;">"{{ pensee_du_jour }}"</p>
-            </div>
-            <div style="padding: 15px; display: flex; flex-direction: column; gap: 15px;">
-                {% for act in recent_activity %}
-                <div class="echo-item" style="position: relative; padding-left: 15px; border-left: 2px solid #feebc8;">
-                    <p style="margin: 0; font-size: 0.9em; color: #2d3748; line-height: 1.4;">
-                        <strong style="color: #3182ce;">{{ act['username'] }}</strong> a partagé une nouvelle histoire...
-                    </p>
-                    <p style="margin: 5px 0 0 0; font-style: italic; color: #718096; font-size: 0.85em;">"{{ act['content'][:60] }}..."</p>
-                    <small style="color: #a0aec0; font-size: 0.75em; display: block; margin-top: 5px;">{{ act['created_at']|relative_time }}</small>
-                </div>
-                {% endfor %}
-            </div>
-            <a href="/" style="display: block; background: #f7fafc; text-align: center; padding: 12px; font-size: 0.85em; color: #3182ce; text-decoration: none; font-weight: bold; border-top: 1px solid #edf2f7;">Ouvrir la Gazette complète →</a>
+        {% if pensee_du_jour %}
+        <div class="post-card" style="padding: 20px; background: #fffaf0; border: 1px solid #feebc8; position: relative; overflow: hidden;">
+            <span style="position: absolute; right: -5px; bottom: -5px; font-size: 40px; opacity: 0.1;">🌿</span>
+            <h4 style="margin: 0 0 10px 0; color: #9c4221; font-size: 0.75em; text-transform: uppercase; font-weight: 800;">La Pensée du Jour</h4>
+            <p style="margin: 0; font-size: 0.9em; color: #744210; line-height: 1.5; font-style: italic; position: relative; z-index: 1;">"{{ pensee_du_jour }}"</p>
         </div>
+        {% endif %}
     </aside>
 </div>
 
 <style>
-    /* Tes styles restent identiques */
     .post-card { transition: all 0.3s ease; border-radius: 15px; background: white; border: 1px solid #e2e8f0; }
-    .delete-notif-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; z-index: 10; padding: 5px; transition: 0.2s; }
-    .pc-cross { font-size: 24px; color: #a0aec0; display: block; }
+    .delete-notif-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; z-index: 10; padding: 8px; transition: 0.2s; border-radius: 50%; }
+    .delete-notif-btn:hover { background: #fff5f5; }
+    .pc-cross { font-size: 20px; color: #cbd5e0; display: block; line-height: 1; }
     .mobile-trash { display: none; font-size: 18px; }
 
     @media (min-width: 769px) {
@@ -125,33 +122,36 @@
         .delete-notif-btn:hover .pc-cross { color: #e53e3e; }
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
+        .notifications-grid { grid-template-columns: 1fr !important; padding: 0 10px; }
+        .notifications-sidebar { display: none; } /* On cache la sidebar sur mobile pour les notifs */
         .pc-cross { display: none; }
-        .mobile-trash { display: block; opacity: 0.6; }
-        div[style*="display: grid"] { grid-template-columns: 1fr !important; gap: 20px !important; }
+        .mobile-trash { display: block; opacity: 0.5; }
     }
 
-    .filter-btn { background: white; color: #4a5568; border: 1px solid #e2e8f0; padding: 5px 12px; border-radius: 20px; font-size: 0.8em; cursor: pointer; transition: all 0.2s ease; }
+    .filter-btn { background: #f7fafc; color: #4a5568; border: 1px solid #e2e8f0; padding: 6px 14px; border-radius: 20px; font-size: 0.8em; cursor: pointer; transition: all 0.2s ease; font-weight: 600; }
     .filter-btn.active { background: #3182ce !important; color: white !important; border-color: #3182ce !important; }
-    aside { display: flex; flex-direction: column; position: sticky; top: 20px; height: fit-content; }
 </style>
 
 <script>
-    /* Le JS reste identique */
-    function deleteNotification(notifId, btnElement) {
+    function deleteNotification(notifId, btnElement, event) {
         event.preventDefault();
         event.stopPropagation();
+
         fetch("/delete_notification/" + notifId, { method: "POST" })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
                 const wrapper = document.getElementById('notif-container-' + notifId);
-                wrapper.style.transition = "all 0.4s ease";
-                wrapper.style.transform = "translateX(50px)";
+                wrapper.style.transition = "all 0.3s ease";
+                wrapper.style.transform = "scale(0.95)";
                 wrapper.style.opacity = "0";
-                setTimeout(() => { wrapper.remove(); if (document.querySelectorAll('.notif-wrapper').length === 0) { location.reload(); } }, 400);
-                const Toast = Swal.mixin({ toast: true, position: 'bottom-end', showConfirmButton: false, timer: 2000 });
-                Toast.fire({ icon: 'success', title: 'Supprimée' });
+                setTimeout(() => {
+                    wrapper.remove();
+                    if (document.querySelectorAll('.notif-wrapper').length === 0) {
+                        location.reload();
+                    }
+                }, 300);
             }
         });
     }
@@ -159,17 +159,20 @@
     document.addEventListener('DOMContentLoaded', function() {
         const filters = document.querySelectorAll('.filter-btn');
         const wrappers = document.querySelectorAll('.notif-wrapper');
+
         filters.forEach(btn => {
             btn.addEventListener('click', () => {
                 filters.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                const filterValue = btn.innerText.toLowerCase();
+
+                const filterValue = btn.getAttribute('data-filter');
                 wrappers.forEach(w => {
                     const type = w.querySelector('.notif-item').getAttribute('data-type');
-                    if (filterValue.includes('toutes')) w.style.display = 'block';
-                    else if (filterValue.includes('réactions') && type === 'reaction') w.style.display = 'block';
-                    else if (filterValue.includes('avis') && type === 'avis') w.style.display = 'block';
-                    else w.style.display = 'none';
+                    if (filterValue === 'toutes' || type === filterValue) {
+                        w.style.display = 'block';
+                    } else {
+                        w.style.display = 'none';
+                    }
                 });
             });
         });

@@ -10,9 +10,15 @@ from PIL import Image
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import threading
+from supabase import create_client, Client
+from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+SUPABASE_URL = "https://votre-id-projet.supabase.co"
+SUPABASE_KEY = "votre-cle-api-anon"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Configuration de Flask-Mail
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -34,6 +40,7 @@ def send_async_email(flask_app, msg):
         except Exception as e:
             print(f"--- ERREUR DANS LE THREAD MAIL : {e} ---")
 
+
 # Configuration des dossiers
 UPLOAD_FOLDER = "static/uploads"
 AVATAR_FOLDER = "static/avatars"
@@ -44,6 +51,28 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(AVATAR_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'webm'}
+
+
+def upload_file_to_supabase(file, bucket_name):
+    try:
+        # On sécurise le nom du fichier
+        filename = secure_filename(file.filename)
+        # On ajoute un timestamp pour éviter les doublons de noms
+        unique_filename = f"{int(time.time())}_{filename}"
+        # Lecture du contenu
+        file_content = file.read()
+        # Upload vers le bucket spécifié
+        supabase.storage.from_(bucket_name).upload(
+            path=unique_filename,
+            file=file_content,
+            file_options={"content-type": file.content_type}
+        )
+        # Récupération de l'URL publique
+        url_data = supabase.storage.from_(bucket_name).get_public_url(unique_filename)
+        return url_data
+    except Exception as e:
+        print(f"Erreur Upload Supabase: {e}")
+        return None
 
 # --- LOGIQUE DE BASE DE DONNÉES (SUPABASE / SQLITE) ---
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -86,16 +115,19 @@ def query_db(query, args=(), one=False):
 
 
 # --- UTILITAIRES ---
-def process_image(file_path):
-    with Image.open(file_path) as img:
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        max_size = 1200
-        if img.width > max_size:
-            ratio = max_size / float(img.width)
-            new_height = int(float(img.height) * float(ratio))
-            img = img.resize((max_size, new_height), Image.Resampling.LANCZOS)
-        img.save(file_path, "JPEG", optimize=True, quality=85)
+def process_image(file):
+    img = Image.open(file)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    max_size = 1200
+    if img.width > max_size:
+        ratio = max_size / float(img.width)
+        new_height = int(float(img.height) * float(ratio))
+        img = img.resize((max_size, new_height), Image.Resampling.LANCZOS)
+    img_io = BytesIO()
+    img.save(img_io, format='JPEG', optimize=True, quality=85)
+    img_io.seek(0)
+    return img_io
 
 
 def login_required(f):
@@ -127,7 +159,6 @@ def update_profile_ajax():
     avatar_file = request.files.get('avatar')
     username = session['user']
     new_avatar_name = None
-
     if avatar_file and avatar_file.filename != '':
         old_user = query_db("SELECT avatar FROM users WHERE username = ?", (username,), one=True)
         if old_user and old_user['avatar'] and old_user['avatar'] != 'default.png':
@@ -135,12 +166,12 @@ def update_profile_ajax():
                 os.remove(os.path.join(app.config['AVATAR_FOLDER'], old_user['avatar']))
             except:
                 pass
-        new_avatar_name = f"{username}_avatar_{int(time.time())}.png"
-        avatar_file.save(os.path.join(app.config['AVATAR_FOLDER'], new_avatar_name))
-        query_db("UPDATE users SET avatar=? WHERE username=?", (new_avatar_name, username))
-
+        # Upload vers Supabase
+        new_avatar_url = upload_file_to_supabase(avatar_file, "avatars")
+        if new_avatar_url:
+            query_db("UPDATE users SET avatar=? WHERE username=?", (new_avatar_url, username))
     query_db("UPDATE users SET firstname=?, lastname=?, bio=? WHERE username=?", (firstname, lastname, bio, username))
-    return jsonify({'success': True, 'new_avatar': new_avatar_name})
+    return jsonify({'success': True, 'new_avatar': new_avatar_url})
 
 
 @app.route('/delete_profile_ajax', methods=['POST'])
@@ -308,19 +339,21 @@ def register():
         firstname, lastname, email = request.form.get("firstname"), request.form.get("lastname"), request.form.get(
             "email")
         username, password = request.form.get("username"), request.form.get("password")
-        avatar = request.files.get("avatar")
-        filename = "default.png"
-        if avatar:
-            filename = secure_filename(f"{username}_{avatar.filename}")
-            avatar.save(os.path.join(app.config["AVATAR_FOLDER"], filename))
+        # Par défaut
+        avatar_url = "https://votre-id-supabase.supabase.co/storage/v1/object/public/avatars/default.png"
+        if avatar and avatar.filename != '':
+            # On traite et on upload
+            avatar_url = upload_file_to_supabase(avatar, "avatars")
+            if not avatar_url: avatar_url = "default.png"  # Fallback
         hashed_password = generate_password_hash(password)
         try:
             query_db(
                 "INSERT INTO users (firstname, lastname, email, username, password, avatar, is_approved, is_admin) VALUES (?, ?, ?, ?, ?, ?, 0, 0)",
-                (firstname, lastname, email, username, hashed_password, filename))
+                (firstname, lastname, email, username, hashed_password, avatar_url))
             flash("Demande envoyée !", "info")
             return redirect("/login")
-        except:
+        except Exception as e:
+            print(f"Erreur inscription: {e}")
             flash("Erreur d'inscription.", "danger")
     return render_template("register.html")
 
@@ -330,7 +363,6 @@ def register():
 def post():
     content = request.form.get("content")
     files = request.files.getlist("images")
-
     # Pour obtenir l'ID sur Postgres vs SQLite
     db = get_db()
     cur = db.cursor()
@@ -343,17 +375,23 @@ def post():
     db.commit()
     cur.close()
     db.close()
-
     for file in files:
         if file and file.filename != '':
-            filename = secure_filename(f"{int(time.time())}_{file.filename}")
-            file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.save(file_path)
-            ext = filename.rsplit('.', 1)[1].lower()
+            ext = file.filename.rsplit('.', 1)[1].lower()
             file_type = 'image' if ext in ['jpg', 'jpeg', 'png', 'gif'] else 'video'
-            if file_type == 'image': process_image(file_path)
-            query_db("INSERT INTO post_medias (post_id, filename, file_type) VALUES (?, ?, ?)",
-                     (post_id, filename, file_type))
+            if file_type == 'image':
+                # On compresse l'image en mémoire avant l'upload
+                processed_file = process_image(file)
+                # On simule un objet file pour Supabase
+                processed_file.content_type = "image/jpeg"
+                processed_file.filename = file.filename
+                file_url = upload_file_to_supabase(processed_file, "uploads")
+            else:
+                # Vidéo : Upload direct sans traitement
+                file_url = upload_file_to_supabase(file, "videos")
+            if file_url:
+                query_db("INSERT INTO post_medias (post_id, filename, file_type) VALUES (?, ?, ?)",
+                         (post_id, file_url, file_type))
     return redirect("/")
 
 
@@ -473,11 +511,11 @@ def profile(username):
 def upload_cover():
     file = request.files.get('cover')
     if file:
-        filename = secure_filename(f"cover_{session['user']}_{file.filename}")
-        file.save(os.path.join(app.config['AVATAR_FOLDER'], filename))
-        query_db("UPDATE users SET cover = ? WHERE username = ?", (filename, session['user']))
-        return jsonify({"success": True, "filename": filename})
-    return jsonify({"error": "Non"}), 400
+        file_url = upload_file_to_supabase(file, "avatars")  # Utilise un bucket 'covers' si tu en as créé un
+        if file_url:
+            query_db("UPDATE users SET cover = ? WHERE username = ?", (file_url, session['user']))
+            return jsonify({"success": True, "filename": file_url})
+    return jsonify({"error": "Erreur upload"}), 400
 
 
 @app.route("/settings", methods=["GET", "POST"])

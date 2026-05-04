@@ -210,9 +210,11 @@ def approve_user(user_id):
         try:
             # 1. On valide d'abord dans la base de données
             query_db("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
-            print(f"Utilisateur {user['firstname']} validé en base.")
-            # 2. On prépare le mail
-            login_url = request.host_url + "login"
+            # 2. Préparation du lien AVANT de configurer le mail
+            # On construit le lien manuellement pour éviter tout bug de l'objet request
+            base_url = request.host_url.rstrip('/')
+            login_url = f"{base_url}/login"
+            # 3. Création du message
             msg = Message("Bienvenue dans la tribu ! ✅", recipients=[user['email']])
             msg.html = f"""
             <h1>🌳 La Gazette Familiale</h1>
@@ -222,14 +224,16 @@ def approve_user(user_id):
             <p><a href="{login_url}" style="padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Se connecter à La Gazette</a></p>
             <p>À très vite !</p>
             """
-            # 3. L'astuce pour Render : on récupère l'instance réelle de l'app
-            current_app = app._get_current_object()
-            thread = threading.Thread(target=send_async_email, args=(current_app, msg))
-            thread.start()
-            flash(f"Utilisateur {user['firstname']} approuvé.", "success")
+            # 4. Lancement du Thread avec l'instance de l'app
+            # On utilise une copie de l'app pour le thread
+            app_instance = app._get_current_object()
+            thr = threading.Thread(target=send_async_email, args=(app_instance, msg))
+            thr.start()
+            flash(f"Utilisateur {user['firstname']} approuvé avec succès !", "success")
         except Exception as e:
-            print(f"Erreur lors de l'approbation : {e}")
-            flash("Erreur lors de l'approbation.", "danger")
+            # ICI : On imprime l'erreur réelle dans les logs Render pour que tu puisses me la donner
+            print(f"ERREUR APPROBATION ROUTE: {str(e)}")
+            flash(f"Erreur lors de l'approbation : {str(e)}", "danger")
     return redirect("/admin/users")
 
 

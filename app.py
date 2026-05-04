@@ -9,6 +9,7 @@ import time, random
 from PIL import Image
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import threading
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -22,6 +23,13 @@ app.config['MAIL_PASSWORD'] = 'vecuhnaguawnofzc'
 app.config['MAIL_DEFAULT_SENDER'] = ('La Gazette Familiale', 'alassanekaba2008@gmail.com')
 
 mail = Mail(app)
+
+def send_async_email(app, msg):
+    with app.app_context():
+        try:
+            mail.send(msg)
+        except Exception as e:
+            print(f"Erreur envoi mail : {e}")
 
 # Configuration des dossiers
 UPLOAD_FOLDER = "static/uploads"
@@ -192,31 +200,50 @@ def admin_users():
 
 @app.route("/admin/approve/<int:user_id>", methods=["POST"])
 def approve_user(user_id):
-    if not session.get("is_admin"): return redirect("/")
+    if not session.get("is_admin"):
+        return redirect("/")
     user = query_db("SELECT email, firstname FROM users WHERE id = ?", (user_id,), one=True)
     if user:
         query_db("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
-        try:
-            msg = Message("Bienvenue dans la tribu ! ✅", recipients=[user['email']])
-            msg.html = f"<h1>🌳 La Gazette Familiale</h1><p>Bonjour {user['firstname']}, ton compte est validé !</p>"
-            mail.send(msg)
-            flash(f"Utilisateur approuvé.", "success")
-        except:
-            flash("Approuvé, mais erreur mail.", "warning")
+        # On génère le lien de connexion dynamiquement
+        # request.host_url donnera http://127.0.0.1:5000/ en local ou https://ton-app.onrender.com/ sur le web
+        login_url = request.host_url + "login"
+        msg = Message("Bienvenue dans la tribu ! ✅", recipients=[user['email']])
+        msg.html = f"""
+        <h1>🌳 La Gazette Familiale</h1>
+        <p>Bonjour {user['firstname']},</p>
+        <p>Bonne nouvelle ! Ton compte a été validé par l'administrateur.</p>
+        <p>Tu peux maintenant te connecter pour partager tes souvenirs avec la famille ici :</p>
+        <p><a href="{login_url}" style="padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Se connecter à La Gazette</a></p>
+        <p>À très vite !</p>
+        """
+        thread = threading.Thread(target=send_async_email, args=(app, msg))
+        thread.start()
+        flash(f"Utilisateur {user['firstname']} approuvé.", "success")
     return redirect("/admin/users")
 
 
 @app.route("/admin/reject/<int:user_id>", methods=["POST"])
 def reject_user(user_id):
-    if not session.get("is_admin"): return redirect("/")
+    if not session.get("is_admin"):
+        return redirect("/")
+    # On récupère les infos avant de supprimer l'utilisateur
     user = query_db("SELECT email, firstname, avatar FROM users WHERE id = ?", (user_id,), one=True)
     if user:
+        # 1. Suppression physique de l'avatar s'il existe
         if user['avatar'] and user['avatar'] != 'default.png':
             try:
                 os.remove(os.path.join(app.config["AVATAR_FOLDER"], user['avatar']))
-            except:
-                pass
+            except Exception as e:
+                print(f"Erreur suppression fichier : {e}")
+        # 2. Suppression dans la base de données (très rapide)
         query_db("DELETE FROM users WHERE id = ?", (user_id,))
+        # 3. Préparation et envoi du mail de refus en arrière-plan
+        msg = Message("Demande d'accès refusée ❌", recipients=[user['email']])
+        msg.body = f"Bonjour {user['firstname']},\n\nNous avons bien reçu votre demande d'inscription à La Gazette Familiale, mais nous ne pouvons pas l'accepter pour le moment.\n\nCordialement,\nL'équipe de La Gazette."
+        thread = threading.Thread(target=send_async_email, args=(app, msg))
+        thread.start()
+        flash(f"La demande de {user['firstname']} a été refusée et le compte supprimé.", "info")
     return redirect("/admin/users")
 
 

@@ -24,12 +24,15 @@ app.config['MAIL_DEFAULT_SENDER'] = ('La Gazette Familiale', 'alassanekaba2008@g
 
 mail = Mail(app)
 
-def send_async_email(app, msg):
-    with app.app_context():
+# Fonction d'envoi simplifiée et sécurisée
+def send_async_email(flask_app, msg):
+    with flask_app.app_context():
         try:
+            print("--- TENTATIVE D'ENVOI MAIL EN COURS ---")
             mail.send(msg)
+            print("--- MAIL ENVOYÉ AVEC SUCCÈS ---")
         except Exception as e:
-            print(f"Erreur envoi mail : {e}")
+            print(f"--- ERREUR DANS LE THREAD MAIL : {e} ---")
 
 # Configuration des dossiers
 UPLOAD_FOLDER = "static/uploads"
@@ -204,22 +207,29 @@ def approve_user(user_id):
         return redirect("/")
     user = query_db("SELECT email, firstname FROM users WHERE id = ?", (user_id,), one=True)
     if user:
-        query_db("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
-        # On génère le lien de connexion dynamiquement
-        # request.host_url donnera http://127.0.0.1:5000/ en local ou https://ton-app.onrender.com/ sur le web
-        login_url = request.host_url + "login"
-        msg = Message("Bienvenue dans la tribu ! ✅", recipients=[user['email']])
-        msg.html = f"""
-        <h1>🌳 La Gazette Familiale</h1>
-        <p>Bonjour {user['firstname']},</p>
-        <p>Bonne nouvelle ! Ton compte a été validé par l'administrateur.</p>
-        <p>Tu peux maintenant te connecter pour partager tes souvenirs avec la famille ici :</p>
-        <p><a href="{login_url}" style="padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Se connecter à La Gazette</a></p>
-        <p>À très vite !</p>
-        """
-        thread = threading.Thread(target=send_async_email, args=(app, msg))
-        thread.start()
-        flash(f"Utilisateur {user['firstname']} approuvé.", "success")
+        try:
+            # 1. On valide d'abord dans la base de données
+            query_db("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
+            print(f"Utilisateur {user['firstname']} validé en base.")
+            # 2. On prépare le mail
+            login_url = request.host_url + "login"
+            msg = Message("Bienvenue dans la tribu ! ✅", recipients=[user['email']])
+            msg.html = f"""
+            <h1>🌳 La Gazette Familiale</h1>
+            <p>Bonjour {user['firstname']},</p>
+            <p>Bonne nouvelle ! Ton compte a été validé par l'administrateur.</p>
+            <p>Tu peux maintenant te connecter pour partager tes souvenirs avec la famille ici :</p>
+            <p><a href="{login_url}" style="padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px;">Se connecter à La Gazette</a></p>
+            <p>À très vite !</p>
+            """
+            # 3. L'astuce pour Render : on récupère l'instance réelle de l'app
+            current_app = app._get_current_object()
+            thread = threading.Thread(target=send_async_email, args=(current_app, msg))
+            thread.start()
+            flash(f"Utilisateur {user['firstname']} approuvé.", "success")
+        except Exception as e:
+            print(f"Erreur lors de l'approbation : {e}")
+            flash("Erreur lors de l'approbation.", "danger")
     return redirect("/admin/users")
 
 

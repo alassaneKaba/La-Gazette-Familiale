@@ -3,3 +3,4 @@ Werkzeug
 Pillow
 Flask-Mail
 gunicorn
+psycopg2-binary

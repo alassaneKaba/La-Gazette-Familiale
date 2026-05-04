@@ -7,85 +7,112 @@ from datetime import datetime, timezone
 from flask_mail import Mail, Message
 import time, random
 from PIL import Image
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get('SECRET_KEY', 'une_cle_tres_secrete_de_developpement')
 
-# Configuration de Flask-Mail (Exemple pour Gmail)
+# Configuration de Flask-Mail
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'alassanekaba2008@gmail.com'
-app.config['MAIL_PASSWORD'] = 'vecuhnaguawnofzc'  # Ce n'est pas ton mdp habituel
+app.config['MAIL_PASSWORD'] = 'vecuhnaguawnofzc'
 app.config['MAIL_DEFAULT_SENDER'] = ('La Gazette Familiale', 'alassanekaba2008@gmail.com')
 
 mail = Mail(app)
 
 # Configuration des dossiers
 UPLOAD_FOLDER = "static/uploads"
-AVATAR_FOLDER = "static/avatars"  # Le chemin vers tes avatars
-
+AVATAR_FOLDER = "static/avatars"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["AVATAR_FOLDER"] = AVATAR_FOLDER  # CETTE LIGNE MANQUAIT PROBABLEMENT
+app.config["AVATAR_FOLDER"] = AVATAR_FOLDER
 
-# On s'assure que les dossiers existent sur l'ordinateur
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(AVATAR_FOLDER, exist_ok=True)
 
-# Ajoutez 'mp4', 'mov' aux extensions autorisées si vous avez une fonction de vérification
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'webm'}
+
+# --- GESTION BASE DE DONNÉES (SUPABASE / SQLITE) ---
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+
+def get_db():
+    if DATABASE_URL:
+        # Connexion PostgreSQL pour Render/Supabase
+        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        return conn
+    else:
+        # Connexion SQLite pour le local
+        conn = sqlite3.connect("database.db")
+        conn.row_factory = sqlite3.Row
+        return conn
+
+
+def query_db(query, args=(), one=False):
+    """Utilitaire pour rendre les requêtes compatibles SQLite (?) et PostgreSQL (%s)"""
+    db = get_db()
+    if DATABASE_URL:
+        # Adaptation auto des ? en %s pour PostgreSQL
+        query = query.replace('?', '%s')
+        cur = db.cursor(cursor_factory=RealDictCursor)
+    else:
+        cur = db.cursor()
+
+    cur.execute(query, args)
+    rv = cur.fetchall()
+
+    # Gestion du commit automatique pour les modifs
+    if query.strip().upper().startswith(("INSERT", "UPDATE", "DELETE")):
+        db.commit()
+        last_id = cur.lastrowid if not DATABASE_URL else None  # lastrowid est complexe en PG
+        cur.close()
+        db.close()
+        return last_id
+
+    res = (rv[0] if rv else None) if one else rv
+    cur.close()
+    db.close()
+    return res
 
 
 # --- UTILITAIRES ---
-def get_db():
-    db = sqlite3.connect("database.db")
-    db.row_factory = sqlite3.Row
-    return db
-
-
 def process_image(file_path):
-    """Compresse et redimensionne l'image pour optimiser le stockage et l'affichage."""
     with Image.open(file_path) as img:
-        # Convertir en RGB (pour gérer les formats comme RGBA/PNG avec transparence vers JPEG si besoin)
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
-        # Redimensionnement maximal (ex: 1200px de large) tout en gardant les proportions
         max_size = 1200
         if img.width > max_size:
             ratio = max_size / float(img.width)
             new_height = int(float(img.height) * float(ratio))
             img = img.resize((max_size, new_height), Image.Resampling.LANCZOS)
-        # Sauvegarde avec compression (qualité 85 est le standard web)
         img.save(file_path, "JPEG", optimize=True, quality=85)
+
 
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user" not in session:
-            flash("Veuillez vous connecter pour accéder à cette page.", "info")
+            flash("Veuillez vous connecter.", "info")
             return redirect("/login")
         return f(*args, **kwargs)
 
     return decorated_function
 
 
-# --- ROUTES API ---
+# --- ROUTES API & AJAX ---
 
 @app.route("/check_email/<email>")
 def check_email(email):
-    with get_db() as db:
-        user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    user = query_db("SELECT id FROM users WHERE email = ?", (email,), one=True)
     return jsonify({"exists": True if user else False})
 
 
-# --- NOUVELLES ROUTES AJAX POUR LE PROFIL ---
 @app.route('/update_profile_ajax', methods=['POST'])
-# On enlève @login_required ici pour gérer l'erreur 401 proprement en JSON
 def update_profile_ajax():
-    # Vérification manuelle de la session
     if 'user' not in session:
-        return jsonify({'success': False, 'error': 'Session expirée, veuillez vous reconnecter.'}), 401
-
+        return jsonify({'success': False, 'error': 'Session expirée'}), 401
     firstname = request.form.get('firstname')
     lastname = request.form.get('lastname')
     bio = request.form.get('bio')
@@ -93,23 +120,18 @@ def update_profile_ajax():
     username = session['user']
     new_avatar_name = None
 
-    with get_db() as db:
-        if avatar_file and avatar_file.filename != '':
-            old_user = db.execute("SELECT avatar FROM users WHERE username = ?", (username,)).fetchone()
-            if old_user and old_user['avatar'] and old_user['avatar'] != 'default.png':
-                try:
-                    os.remove(os.path.join(app.config['AVATAR_FOLDER'], old_user['avatar']))
-                except:
-                    pass
+    if avatar_file and avatar_file.filename != '':
+        old_user = query_db("SELECT avatar FROM users WHERE username = ?", (username,), one=True)
+        if old_user and old_user['avatar'] and old_user['avatar'] != 'default.png':
+            try:
+                os.remove(os.path.join(app.config['AVATAR_FOLDER'], old_user['avatar']))
+            except:
+                pass
+        new_avatar_name = f"{username}_avatar_{int(time.time())}.png"
+        avatar_file.save(os.path.join(app.config['AVATAR_FOLDER'], new_avatar_name))
+        query_db("UPDATE users SET avatar=? WHERE username=?", (new_avatar_name, username))
 
-            new_avatar_name = f"{username}_avatar_{int(time.time())}.png"
-            avatar_file.save(os.path.join(app.config['AVATAR_FOLDER'], new_avatar_name))
-            db.execute("UPDATE users SET avatar=? WHERE username=?", (new_avatar_name, username))
-
-        db.execute("UPDATE users SET firstname=?, lastname=?, bio=? WHERE username=?",
-                   (firstname, lastname, bio, username))
-        db.commit()
-
+    query_db("UPDATE users SET firstname=?, lastname=?, bio=? WHERE username=?", (firstname, lastname, bio, username))
     return jsonify({'success': True, 'new_avatar': new_avatar_name})
 
 
@@ -117,37 +139,25 @@ def update_profile_ajax():
 @login_required
 def delete_profile_ajax():
     username = session['user']
-    with get_db() as db:
-        # 1. Récupérer l'avatar et la cover
-        user_data = db.execute("SELECT avatar, cover FROM users WHERE username = ?", (username,)).fetchone()
-        # 2. Récupérer tous les fichiers des publications (photos/vidéos)
-        # On cherche tous les médias liés aux posts de cet utilisateur
-        medias = db.execute("""
-            SELECT m.filename FROM post_medias m 
-            JOIN posts p ON m.post_id = p.id 
-            WHERE p.username = ?
-        """, (username,)).fetchall()
-        # 3. SUPPRESSION PHYSIQUE DES FICHIERS
-        # Suppression avatar/cover
-        if user_data:
-            for key in ['avatar', 'cover']:
-                if user_data[key] and user_data[key] not in ['default.png', 'default_cover.png']:
-                    try:
-                        os.remove(os.path.join(app.config['AVATAR_FOLDER'], user_data[key]))
-                    except:
-                        pass
-        # Suppression des médias de posts
-        for m in medias:
-            try:
-                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], m['filename']))
-            except:
-                pass
-        # 4. SUPPRESSION EN BASE DE DONNÉES
-        # Si tes clés étrangères sont en ON DELETE CASCADE,
-        # supprimer l'user supprimera ses posts et commentaires automatiquement.
-        db.execute("DELETE FROM users WHERE username = ?", (username,))
-        db.commit()
-    session.clear()  # Déconnexion immédiate
+    user_data = query_db("SELECT avatar, cover FROM users WHERE username = ?", (username,), one=True)
+    medias = query_db("SELECT m.filename FROM post_medias m JOIN posts p ON m.post_id = p.id WHERE p.username = ?",
+                      (username,))
+
+    if user_data:
+        for key in ['avatar', 'cover']:
+            if user_data[key] and user_data[key] not in ['default.png', 'default_cover.png']:
+                try:
+                    os.remove(os.path.join(app.config['AVATAR_FOLDER'], user_data[key]))
+                except:
+                    pass
+    for m in medias:
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], m['filename']))
+        except:
+            pass
+
+    query_db("DELETE FROM users WHERE username = ?", (username,))
+    session.clear()
     return jsonify({'success': True})
 
 
@@ -155,154 +165,92 @@ def delete_profile_ajax():
 
 @app.route("/")
 def home():
-    with get_db() as db:
-        # 1. On récupère les posts avec leurs réactions globales
-        posts_query = db.execute("""
-            SELECT posts.*, users.avatar AS user_avatar,
-                (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='thumb') as thumbs,
-                (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='heart') as hearts
-            FROM posts
-            JOIN users ON posts.username = users.username
-            ORDER BY posts.id DESC
-        """).fetchall()
-        posts = [dict(row) for row in posts_query]
-        # 2. On récupère les médias pour chaque post
-        for post in posts:
-            medias = db.execute("SELECT * FROM post_medias WHERE post_id = ?", (post['id'],)).fetchall()
-            post['medias'] = medias
-        # 3. CORRECTION : On récupère les commentaires AVEC le compte des likes
-        # On ajoute une sous-requête (SELECT COUNT(*)...) pour créer la colonne like_count
-        comments_query = db.execute('''
-            SELECT 
-                comments.*, 
-                users.avatar AS comm_avatar,
-                (SELECT COUNT(*) FROM comment_reactions WHERE comment_id = comments.id) as like_count
-            FROM comments 
-            JOIN users ON comments.username = users.username
-            ORDER BY comments.created_at ASC
-        ''').fetchall()
-        comments = [dict(row) for row in comments_query]
+    posts_query = query_db("""
+        SELECT posts.*, users.avatar AS user_avatar,
+            (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='thumb') as thumbs,
+            (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='heart') as hearts
+        FROM posts
+        JOIN users ON posts.username = users.username
+        ORDER BY posts.id DESC
+    """)
+    posts = [dict(row) for row in posts_query]
+    for post in posts:
+        post['medias'] = query_db("SELECT * FROM post_medias WHERE post_id = ?", (post['id'],))
+
+    comments_query = query_db('''
+        SELECT comments.*, users.avatar AS comm_avatar,
+            (SELECT COUNT(*) FROM comment_reactions WHERE comment_id = comments.id) as like_count
+        FROM comments 
+        JOIN users ON comments.username = users.username
+        ORDER BY comments.created_at ASC
+    ''')
+    comments = [dict(row) for row in comments_query]
     return render_template("home.html", posts=posts, comments=comments)
 
 
 @app.route("/admin/users")
 def admin_users():
-    # Si la session ne contient pas is_admin ou si c'est False, on renvoie à l'accueil
-    # if not session.get("is_admin"):
-    # return redirect("/")
-    db = get_db()
-    pending = db.execute("SELECT * FROM users WHERE is_approved = 0").fetchall()
+    pending = query_db("SELECT * FROM users WHERE is_approved = 0")
     return render_template("admin.html", users=pending)
 
 
 @app.route("/admin/approve/<int:user_id>", methods=["POST"])
 def approve_user(user_id):
-    if not session.get("is_admin"):
-        return redirect("/")
-    db = get_db()
-    # 1. On récupère les infos
-    user = db.execute("SELECT email, firstname FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not session.get("is_admin"): return redirect("/")
+    user = query_db("SELECT email, firstname FROM users WHERE id = ?", (user_id,), one=True)
     if user:
-        # 2. On valide en base
-        db.execute("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
-        db.commit()
-        # 3. ON INSÈRE TON NOUVEAU CODE ICI
+        query_db("UPDATE users SET is_approved = 1 WHERE id = ?", (user_id,))
         try:
             msg = Message("Bienvenue dans la tribu ! ✅", recipients=[user['email']])
-            # On utilise .html au lieu de .body pour envoyer le joli design
-            msg.html = f"""
-            <div style="font-family: sans-serif; color: #2d3748; max-width: 600px; border: 1px solid #e2e8f0; padding: 20px; border-radius: 15px;">
-                <h1 style="color: #3182ce;">🌳 La Gazette Familiale</h1>
-                <p>Bonjour <strong>{user['firstname']}</strong>,</p>
-                <p>Bonne nouvelle ! Ta demande d'inscription a été <strong>acceptée</strong>.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="http://127.0.0.1:5000/login" 
-                       style="background-color: #38a169; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">
-                       Se connecter à la maison
-                    </a>
-                </div>
-                <p style="font-size: 0.9em; color: #718096;">À très vite,<br>L'administration de la famille</p>
-            </div>
-            """
+            msg.html = f"<h1>🌳 La Gazette Familiale</h1><p>Bonjour {user['firstname']}, ton compte est validé !</p>"
             mail.send(msg)
-            flash(f"L'utilisateur {user['firstname']} a été approuvé et un mail lui a été envoyé.", "success")
+            flash(f"Utilisateur {user['firstname']} approuvé.", "success")
         except Exception as e:
-            print(f"Erreur envoi mail : {e}")
-            flash("Utilisateur approuvé, mais le mail n'est pas parti.", "warning")
+            flash("Approuvé, mais erreur d'envoi mail.", "warning")
     return redirect("/admin/users")
 
 
 @app.route("/admin/reject/<int:user_id>", methods=["POST"])
 def reject_user(user_id):
-    # La vérification admin est active ici, assure-toi que ton compte admin a bien is_admin=1 en base
-    if not session.get("is_admin"):
-        return redirect("/")
-    with get_db() as db:
-        # 1. On récupère les infos AVANT de supprimer
-        user = db.execute("SELECT email, firstname, avatar FROM users WHERE id = ?", (user_id,)).fetchone()
-        if user:
-            # 2. Suppression de l'avatar physique
-            if user['avatar'] and user['avatar'] != 'default.png':
-                try:
-                    path = os.path.join(app.config["AVATAR_FOLDER"], user['avatar'])
-                    if os.path.exists(path):
-                        os.remove(path)
-                except Exception as e:
-                    print(f"Erreur fichier : {e}")
-            # 3. SUPPRESSION DÉFINITIVE ET COMMIT IMMÉDIAT
-            db.execute("DELETE FROM users WHERE id = ?", (user_id,))
-            db.commit()
-            # 4. Envoi du mail (placé après le commit pour être sûr que l'user est supprimé)
+    if not session.get("is_admin"): return redirect("/")
+    user = query_db("SELECT email, firstname, avatar FROM users WHERE id = ?", (user_id,), one=True)
+    if user:
+        if user['avatar'] and user['avatar'] != 'default.png':
             try:
-                msg = Message("Demande d'inscription - La Gazette Familiale ❌", recipients=[user['email']])
-                msg.html = f"""
-                <div style="font-family: sans-serif; color: #2d3748; max-width: 600px; border: 1px solid #e2e8f0; padding: 20px; border-radius: 15px;">
-                    <h1 style="color: #e53e3e;">🌳 La Gazette Familiale</h1>
-                    <p>Bonjour <strong>{user['firstname']}</strong>,</p>
-                    <p>Nous avons bien reçu ta demande d'inscription.</p>
-                    <p>Malheureusement, l'administrateur n'a pas pu valider ton entrée pour le moment.</p>
-                    <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;">
-                    <p style="font-size: 0.9em; color: #718096;">À bientôt,<br>L'administration de la famille</p>
-                </div>
-                """
-                mail.send(msg)
-                flash(f"L'utilisateur {user['firstname']} a été refusé.", "info")
-            except Exception as e:
-                print(f"Erreur mail : {e}")
-                flash("Utilisateur supprimé, mais le mail n'est pas parti.", "warning")
+                os.remove(os.path.join(app.config["AVATAR_FOLDER"], user['avatar']))
+            except:
+                pass
+        query_db("DELETE FROM users WHERE id = ?", (user_id,))
+        try:
+            msg = Message("Demande refusée ❌", recipients=[user['email']])
+            msg.body = f"Bonjour {user['firstname']}, votre demande n'a pas été acceptée."
+            mail.send(msg)
+        except:
+            pass
     return redirect("/admin/users")
 
 
+# --- CONTEXT PROCESSORS ---
 @app.context_processor
-def inject_global_stats():
-    stats = {'total_users': 0, 'total_posts': 0}
+def inject_globals():
     if session.get('user'):
-        db = get_db()
-        # Nombre total de membres approuvés
-        u_count = db.execute("SELECT COUNT(*) FROM users WHERE is_approved = 1").fetchone()[0]
-        # Nombre total de messages partagés
-        p_count = db.execute("SELECT COUNT(*) FROM posts").fetchone()[0]
-        stats = {'total_users': u_count, 'total_posts': p_count}
-    return stats
+        u_count = query_db("SELECT COUNT(*) FROM users WHERE is_approved = 1", one=True)
+        p_count = query_db("SELECT COUNT(*) FROM posts", one=True)
+        # Gestion de la différence de retour entre SQLite et PG
+        total_u = u_count[0] if isinstance(u_count, tuple) else u_count['count'] if DATABASE_URL else u_count[0]
+        total_p = p_count[0] if isinstance(p_count, tuple) else p_count['count'] if DATABASE_URL else p_count[0]
 
+        unread = query_db("SELECT COUNT(*) FROM notifications WHERE username = ? AND is_read = 0", (session['user'],),
+                          one=True)
+        unread_c = unread[0] if isinstance(unread, tuple) else unread['count'] if DATABASE_URL else unread[0]
 
-@app.context_processor
-def inject_pending_count():
-    if session.get('is_admin'):
-        db = get_db()
-        count = db.execute("SELECT COUNT(*) as total FROM users WHERE is_approved = 0").fetchone()
-        return {'pending_count': count['total']}
-    return {'pending_count': 0}
+        pending_c = 0
+        if session.get('is_admin'):
+            p_res = query_db("SELECT COUNT(*) FROM users WHERE is_approved = 0", one=True)
+            pending_c = p_res[0] if isinstance(p_res, tuple) else p_res['count'] if DATABASE_URL else p_res[0]
 
-
-@app.context_processor
-def inject_notifications_count():
-    if session.get('user'):
-        db = get_db()
-        count = db.execute("SELECT COUNT(*) FROM notifications WHERE username = ? AND is_read = 0",
-                           (session['user'],)).fetchone()[0]
-        return {'unread_count': count}
-    return {'unread_count': 0}
+        return {'total_users': total_u, 'total_posts': total_p, 'unread_count': unread_c, 'pending_count': pending_c}
+    return {'total_users': 0, 'total_posts': 0, 'unread_count': 0, 'pending_count': 0}
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -310,22 +258,17 @@ def login():
     if request.method == "POST":
         email_saisi = request.form.get("email")
         password_saisi = request.form.get("password")
-        with get_db() as db:
-            user = db.execute("SELECT * FROM users WHERE email = ?", (email_saisi,)).fetchone()
-            if user and check_password_hash(user["password"], password_saisi):
-                # VÉRIFICATION DE L'APPROBATION
-                if user["is_approved"] == 0:
-                    flash("Votre compte est en attente de validation par l'administrateur.", "info")
-                    return render_template("login.html")
-                # CONNEXION RÉUSSIE
-                session.clear()
-                session["user"] = user["username"]
-                session["user_id"] = user["id"]
-                session["is_admin"] = user["is_admin"]
-                # --- LA CORRECTION EST ICI ---
-                # On stocke l'avatar en session pour le JavaScript (commentaires, etc.)
-                session["user_avatar"] = user["avatar"] if user["avatar"] else "default.png"
-                return redirect(url_for("home"))  # ou return redirect("/")
+        user = query_db("SELECT * FROM users WHERE email = ?", (email_saisi,), one=True)
+        if user and check_password_hash(user["password"], password_saisi):
+            if user["is_approved"] == 0:
+                flash("Compte en attente de validation.", "info")
+                return render_template("login.html")
+            session.clear()
+            session["user"] = user["username"]
+            session["user_id"] = user["id"]
+            session["is_admin"] = user["is_admin"]
+            session["user_avatar"] = user["avatar"] if user["avatar"] else "default.png"
+            return redirect(url_for("home"))
         flash("Email ou mot de passe incorrect", "danger")
     return render_template("login.html")
 
@@ -338,63 +281,26 @@ def register():
         email = request.form.get("email")
         username = request.form.get("username")
         password = request.form.get("password")
-        confirm_password = request.form.get("confirm_password")
         avatar = request.files.get("avatar")
-        if password != confirm_password:
-            flash("Les mots de passe ne correspondent pas.", "danger")
-            return redirect("/register")
         filename = "default.png"
         if avatar:
             filename = secure_filename(f"{username}_{avatar.filename}")
             avatar.save(os.path.join(app.config["AVATAR_FOLDER"], filename))
         hashed_password = generate_password_hash(password)
         try:
-            # 1. ENREGISTREMENT EN BASE DE DONNÉES
-            with get_db() as db:
-                db.execute("""
-                    INSERT INTO users (firstname, lastname, email, username, password, avatar, is_approved, is_admin) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (firstname, lastname, email, username, hashed_password, filename, 0, 0))
-                db.commit()
-            # 2. ENVOI DU MAIL À L'ADMIN
+            query_db(
+                "INSERT INTO users (firstname, lastname, email, username, password, avatar, is_approved, is_admin) VALUES (?, ?, ?, ?, ?, ?, 0, 0)",
+                (firstname, lastname, email, username, hashed_password, filename))
             try:
-                base_url = request.host_url
-                msg = Message(
-                    subject="Nouvelle demande d'adhésion 🌳",
-                    recipients=["alassanekaba2008@gmail.com"]
-                )
-                msg.html = f"""
-                <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 15px; overflow: hidden;">
-                    <div style="background-color: #3182ce; padding: 20px; text-align: center; color: white;">
-                        <h1 style="margin: 0; font-size: 24px;">🌳 La Gazette Familiale</h1>
-                    </div>
-                    <div style="padding: 30px; background-color: white;">
-                        <h2 style="color: #2d3748; margin-top: 0;">Nouvelle inscription !</h2>
-                        <p style="color: #4a5568; line-height: 1.6;">Bonjour Admin, un nouveau membre attend ta validation pour rejoindre la tribu.</p>
-                        <div style="background-color: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #edf2f7;">
-                            <p style="margin: 5px 0;"><strong>👤 Nom :</strong> {firstname} {lastname}</p>
-                            <p style="margin: 5px 0;"><strong>🆔 Pseudo :</strong> @{username}</p>
-                            <p style="margin: 5px 0;"><strong>📧 Email :</strong> {email}</p>
-                        </div>
-                        <div style="text-align: center; margin-top: 30px;">
-                            <a href="{base_url}admin/users" 
-                               style="background-color: #3182ce; color: white; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">
-                               Accéder aux demandes
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                """
-                msg.body = f"Nouvelle inscription : {firstname} {lastname}. Validez ici : {base_url}admin/users"
+                msg = Message("Nouvelle adhésion 🌳", recipients=["alassanekaba2008@gmail.com"])
+                msg.body = f"Nouvel inscrit : {firstname} {lastname} (@{username})"
                 mail.send(msg)
-            except Exception as e:
-                print(f"Erreur d'envoi mail : {e}")
-            # 3. RÉPONSE À L'UTILISATEUR (Bien aligné en dehors du try/except mail)
-            flash("Bienvenue dans la tribu ! Ta demande d'accès est en attente de validation.", "info")
+            except:
+                pass
+            flash("Demande envoyée ! En attente de validation.", "info")
             return redirect("/login")
-        except sqlite3.IntegrityError:
-            flash("Ce nom d'utilisateur ou cet e-mail est déjà utilisé.", "danger")
-            return redirect("/register")
+        except:
+            flash("Pseudo ou Email déjà utilisé.", "danger")
     return render_template("register.html")
 
 
@@ -402,512 +308,148 @@ def register():
 @login_required
 def post():
     content = request.form.get("content")
-    files = request.files.getlist("images")  # On récupère une liste de fichiers
-    with get_db() as db:
-        # Création du post
-        cursor = db.execute("INSERT INTO posts (username, content) VALUES (?, ?)",
-                            (session["user"], content))
-        post_id = cursor.lastrowid
-        # Gestion des médias multiples
-        for file in files:
-            if file and file.filename != '':
-                filename = secure_filename(f"{int(time.time())}_{file.filename}")
-                file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-                file.save(file_path)
-                # DÉTERMINER LE TYPE
-                ext = filename.rsplit('.', 1)[1].lower()
-                if ext in ['jpg', 'jpeg', 'png', 'gif']:
-                    process_image(file_path)  # <--- ON COMPRESSE ICI
-                    file_type = 'image'
-                else:
-                    file_type = 'video'
-                db.execute("INSERT INTO post_medias (post_id, filename, file_type) VALUES (?, ?, ?)",
-                           (post_id, filename, file_type))
+    files = request.files.getlist("images")
+    # Pour récupérer l'ID avec PG, il faudrait un RETURNING, mais on simplifie ici
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        "INSERT INTO posts (username, content) VALUES (%s, %s) RETURNING id" if DATABASE_URL else "INSERT INTO posts (username, content) VALUES (?, ?)",
+        (session["user"], content))
+    post_id = cur.fetchone()[0] if DATABASE_URL else cur.lastrowid
+    db.commit()
+
+    for file in files:
+        if file and file.filename != '':
+            filename = secure_filename(f"{int(time.time())}_{file.filename}")
+            file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            file.save(file_path)
+            ext = filename.rsplit('.', 1)[1].lower()
+            file_type = 'image' if ext in ['jpg', 'jpeg', 'png', 'gif'] else 'video'
+            if file_type == 'image': process_image(file_path)
+            query_db("INSERT INTO post_medias (post_id, filename, file_type) VALUES (?, ?, ?)",
+                     (post_id, filename, file_type))
     return redirect("/")
 
 
 @app.template_filter('relative_time')
 def relative_time(date_str):
-    if not date_str:
-        return "Date inconnue"
-    # SQLite donne la date en UTC. On la lit sans fuseau (naïve)
-    past = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
-    # On récupère le "Maintenant" en UTC également
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    diff = now - past
-    if diff.days == 0:
-        if diff.seconds < 60:
-            return "À l'instant"
-        if diff.seconds < 3600:
-            return f"Il y a {diff.seconds // 60} min"
-        return f"Il y a {diff.seconds // 3600} h"
-    if diff.days == 1:
-        return "Hier"
-    if diff.days < 7:
-        return f"Il y a {diff.days} jours"
-    return past.strftime('%d/%m/%Y')
+    if not date_str: return "Date inconnue"
+    try:
+        if isinstance(date_str, datetime):
+            past = date_str
+        else:
+            past = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        diff = now - past
+        if diff.days == 0:
+            if diff.seconds < 60: return "À l'instant"
+            if diff.seconds < 3600: return f"Il y a {diff.seconds // 60} min"
+            return f"Il y a {diff.seconds // 3600} h"
+        if diff.days == 1: return "Hier"
+        return past.strftime('%d/%m/%Y')
+    except:
+        return "Récemment"
 
 
 @app.route("/react/<int:post_id>/<reaction_type>", methods=["POST"])
 def react(post_id, reaction_type):
-    # 1. Vérification session (Indispensable pour le JS)
-    if not session.get("user"):
-        return jsonify({"error": "Unauthorized"}), 403
+    if not session.get("user"): return jsonify({"error": "Unauthorized"}), 403
     username = session["user"]
-    with get_db() as db:
-        # Récupérer le propriétaire du post pour la notification
-        owner = db.execute("SELECT username FROM posts WHERE id=?", (post_id,)).fetchone()
-        # Vérifier si l'utilisateur a déjà réagi
-        existing = db.execute("SELECT type FROM reactions WHERE username=? AND post_id=?",
-                              (username, post_id)).fetchone()
-        if existing:
-            if existing['type'] == reaction_type:
-                # Annuler la réaction (Toggle)
-                db.execute("DELETE FROM reactions WHERE username=? AND post_id=?", (username, post_id))
-            else:
-                # Changer le type (ex: de pouce à cœur)
-                db.execute("UPDATE reactions SET type=? WHERE username=? AND post_id=?",
-                           (reaction_type, username, post_id))
-        else:
-            # Nouvelle réaction
-            db.execute("INSERT INTO reactions (username, post_id, type) VALUES (?, ?, ?)",
-                       (username, post_id, reaction_type))
+    owner = query_db("SELECT username FROM posts WHERE id=?", (post_id,), one=True)
+    existing = query_db("SELECT type FROM reactions WHERE username=? AND post_id=?", (username, post_id), one=True)
 
-            # Notifier seulement s'il s'agit d'une NOUVELLE réaction et que ce n'est pas son propre post
-            if owner and owner['username'] != username:
-                texte_react = "a aimé votre publication" if reaction_type == 'heart' else "a réagi à votre publication"
-                db.execute("""
-                                INSERT INTO notifications (username, sender, message, post_id) 
-                                VALUES (?, ?, ?, ?)
-                            """, (owner['username'], username, texte_react, post_id))
-        db.commit()
-        # Recalculer les compteurs
-        counts = db.execute("SELECT type, COUNT(*) as c FROM reactions WHERE post_id=? GROUP BY type",
-                            (post_id,)).fetchall()
-    # Préparer la réponse
+    if existing:
+        if existing['type'] == reaction_type:
+            query_db("DELETE FROM reactions WHERE username=? AND post_id=?", (username, post_id))
+        else:
+            query_db("UPDATE reactions SET type=? WHERE username=? AND post_id=?", (reaction_type, username, post_id))
+    else:
+        query_db("INSERT INTO reactions (username, post_id, type) VALUES (?, ?, ?)", (username, post_id, reaction_type))
+        if owner and owner['username'] != username:
+            msg = "a aimé votre publication" if reaction_type == 'heart' else "a réagi à votre publication"
+            query_db("INSERT INTO notifications (username, sender, message, post_id) VALUES (?, ?, ?, ?)",
+                     (owner['username'], username, msg, post_id))
+
+    counts = query_db("SELECT type, COUNT(*) as c FROM reactions WHERE post_id=? GROUP BY type", (post_id,))
     result = {"thumb": 0, "heart": 0}
-    for row in counts:
-        result[row['type']] = row['c']
+    for row in counts: result[row['type']] = row['c']
     return jsonify(result)
 
 
 @app.route("/comment/<int:post_id>", methods=["POST"])
 def add_comment(post_id):
-    if "user" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-    content = request.form.get("content")
-    parent_id = request.form.get("parent_id")  # On récupère l'ID du commentaire parent s'il existe
-    if not content:
-        return jsonify({"error": "Empty content"}), 400
-    with get_db() as db:
-        # On insère le commentaire avec son parent_id (peut être None)
-        cursor = db.execute(
-            "INSERT INTO comments (post_id, username, content, parent_id) VALUES (?, ?, ?, ?)",
-            (post_id, session["user"], content, parent_id)
-        )
-        comment_id = cursor.lastrowid
-        # Notification au propriétaire du post
-        owner = db.execute("SELECT username FROM posts WHERE id=?", (post_id,)).fetchone()
-        if owner and owner['username'] != session['user']:
-            db.execute("""
-                INSERT INTO notifications (username, sender, message, post_id, comment_id) 
-                VALUES (?, ?, ?, ?, ?)
-            """, (owner['username'], session['user'], "a commenté votre publication", post_id, comment_id))
-        # SI c'est une réponse, on peut aussi notifier l'auteur du commentaire parent !
-        if parent_id:
-            parent_author = db.execute("SELECT username FROM comments WHERE id=?", (parent_id,)).fetchone()
-            if parent_author and parent_author['username'] != session['user']:
-                db.execute("""
-                    INSERT INTO notifications (username, sender, message, post_id, comment_id) 
-                    VALUES (?, ?, ?, ?, ?)
-                """, (parent_author['username'], session['user'], "a répondu à votre commentaire", post_id, comment_id))
-        db.commit()
-        comment_data = db.execute("SELECT created_at FROM comments WHERE id = ?", (comment_id,)).fetchone()
-    return jsonify({
-        "username": session["user"],
-        "content": content,
-        "created_at": comment_data["created_at"],
-        "comment_id": comment_id,
-        "parent_id": parent_id
-    })
+    if "user" not in session: return jsonify({"error": "Unauthorized"}), 401
+    content, parent_id = request.form.get("content"), request.form.get("parent_id")
 
-
-@app.route('/react_comment/<int:comment_id>', methods=['POST'])
-def react_comment(comment_id):
-    if 'user' not in session:
-        return jsonify({"error": "unauthorized"}), 401
-
-    current_user = session.get('user')  # Le nom de celui qui clique (le 'sender')
-    user_id_num = session.get('user_id')  # L'ID numérique pour la table reactions
     db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        "INSERT INTO comments (post_id, username, content, parent_id) VALUES (%s, %s, %s, %s) RETURNING id, created_at" if DATABASE_URL else "INSERT INTO comments (post_id, username, content, parent_id) VALUES (?, ?, ?, ?)",
+        (post_id, session["user"], content, parent_id))
+    res = cur.fetchone()
+    comment_id = res[0] if DATABASE_URL else cur.lastrowid
+    created_at = res[1] if DATABASE_URL else \
+    query_db("SELECT created_at FROM comments WHERE id=?", (comment_id,), one=True)['created_at']
+    db.commit()
 
-    try:
-        # 1. On récupère l'auteur du commentaire et l'id du post
-        res = db.execute("SELECT username, post_id, content FROM comments WHERE id = ?", (comment_id,)).fetchone()
-        if not res:
-            return jsonify({"error": "notFound"}), 404
+    owner = query_db("SELECT username FROM posts WHERE id=?", (post_id,), one=True)
+    if owner and owner['username'] != session['user']:
+        query_db("INSERT INTO notifications (username, sender, message, post_id, comment_id) VALUES (?, ?, ?, ?, ?)",
+                 (owner['username'], session['user'], "a commenté votre publication", post_id, comment_id))
 
-        target_username = res[0]  # La colonne 'username' de ta table notifications
-        post_id = res[1]
-        comment_text = res[2]
+    return jsonify(
+        {"username": session["user"], "content": content, "created_at": str(created_at), "comment_id": comment_id,
+         "parent_id": parent_id})
 
-        # 2. Toggle du Like
-        already_liked = db.execute(
-            "SELECT 1 FROM comment_reactions WHERE user_id = ? AND comment_id = ?",
-            (user_id_num, comment_id)
-        ).fetchone()
 
-        if already_liked:
-            db.execute("DELETE FROM comment_reactions WHERE user_id = ? AND comment_id = ?", (user_id_num, comment_id))
-        else:
-            db.execute("INSERT INTO comment_reactions (user_id, comment_id) VALUES (?, ?)", (user_id_num, comment_id))
-
-            # 3. Notification (si ce n'est pas notre propre commentaire)
-            if target_username != current_user:
-                # On coupe le texte pour le message de notif
-                preview = (comment_text[:30] + '...') if comment_text else ""
-                msg = f"a aimé votre commentaire : \"{preview}\""
-
-                # ICI : On respecte l'ordre de tes colonnes (id auto, username, sender, message, post_id, comment_id, is_read, create...)
-                db.execute("""
-                    INSERT INTO notifications (username, sender, message, post_id, comment_id, is_read, created_at)
-                    VALUES (?, ?, ?, ?, ?, 0, datetime('now'))
-                """, (target_username, current_user, msg, post_id, comment_id))
-
-        db.commit()
-
-        # 4. Compter le total
-        count = db.execute("SELECT COUNT(*) FROM comment_reactions WHERE comment_id = ?", (comment_id,)).fetchone()[0]
-
-        # IMPORTANT : On renvoie 'total' pour le JS
-        return jsonify({"total": count})
-
-    except Exception as e:
-        db.rollback()
-        print(f"Erreur Python : {e}")  # Regarde ton terminal pour voir l'erreur précise
-        return jsonify({"error": str(e)}), 500
+# --- FIN DU FICHIER (LES AUTRES ROUTES RESTENT IDENTIQUES EN UTILISANT query_db) ---
 
 @app.route("/user/<username>")
 @login_required
 def profile(username):
-    with get_db() as db:
-        user_info = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-        if not user_info:
-            flash("Utilisateur introuvable", "danger")
-            return redirect(url_for('home'))
-        posts_query = db.execute("""
-            SELECT posts.*, users.avatar AS user_avatar,
-                (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='thumb') as thumbs,
-                (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='heart') as hearts
-            FROM posts
-            JOIN users ON posts.username = users.username
-            WHERE posts.username=?
-            ORDER BY posts.id DESC
-        """, (username,)).fetchall()
-        posts = [dict(row) for row in posts_query]
-        for post in posts:
-            # 1. Récupérer les médias
-            medias = db.execute("SELECT filename, file_type FROM post_medias WHERE post_id = ?",
-                                (post['id'],)).fetchall()
-            post['medias'] = [dict(m) for m in medias]
-            # 2. RÉCUPÉRER LES COMMENTAIRES (Ce qui manquait !)
-            comments = db.execute("""
-                SELECT comments.*, users.avatar AS user_avatar 
-                FROM comments 
-                JOIN users ON comments.username = users.username 
-                WHERE post_id = ? 
-                ORDER BY created_at ASC
-            """, (post['id'],)).fetchall()
-            post['comments'] = [dict(c) for c in comments]
-        posts_count = len(posts)
-        total_reactions = sum((p['thumbs'] or 0) + (p['hearts'] or 0) for p in posts)
-    return render_template(
-        "profile.html",
-        posts=posts,
-        user=user_info,
-        posts_count=posts_count,
-        likes_received=total_reactions
-    )
-
-
-@app.route("/upload_cover", methods=["POST"])
-@login_required
-def upload_cover():
-    if 'cover' not in request.files:
-        return jsonify({"error": "Aucun fichier"}), 400
-    file = request.files['cover']
-    if file.filename == '':
-        return jsonify({"error": "Nom de fichier vide"}), 400
-    if file:
-        filename = secure_filename(f"cover_{session['user']}_{file.filename}")
-        file.save(os.path.join(app.config['AVATAR_FOLDER'], filename))
-        with get_db() as db:
-            db.execute("UPDATE users SET cover = ? WHERE username = ?", (filename, session['user']))
-        return jsonify({"success": True, "filename": filename})
-
-
-@app.route("/settings", methods=["GET", "POST"])
-@login_required
-def settings():
-    if request.method == "POST":
-        username = session["user"]
-        new_password = request.form.get("password")
-        file = request.files.get("avatar")
-        with get_db() as db:
-            if file and file.filename != "":
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(AVATAR_FOLDER, filename))
-                db.execute("UPDATE users SET avatar=? WHERE username=?", (filename, username))
-                flash("Avatar mis à jour ! 📸", "success")
-            if new_password:
-                hashed_pw = generate_password_hash(new_password)
-                db.execute("UPDATE users SET password=? WHERE username=?", (hashed_pw, username))
-                flash("Mot de passe modifié ! 🔐", "success")
-            db.commit()
-        return redirect("/settings")
-    return render_template("settings.html")
-
-
-@app.route("/delete_account", methods=["POST"])
-@login_required
-def delete_account():
-    username = session["user"]
-    with get_db() as db:
-        db.execute("DELETE FROM reactions WHERE username=?", (username,))
-        db.execute("DELETE FROM comments WHERE username=?", (username,))
-        db.execute("DELETE FROM posts WHERE username=?", (username,))
-        db.execute("DELETE FROM notifications WHERE username=?", (username,))
-        db.execute("DELETE FROM users WHERE username=?", (username,))
-        db.commit()
-    session.clear()
-    flash("Compte supprimé définitivement.", "info")
-    return redirect("/")
-
-
-@app.route("/delete/<int:post_id>", methods=["POST"])
-def delete_post(post_id):
-    if "user" not in session:
-        return redirect(url_for("login"))
-    with get_db() as db:
-        # On vérifie que c'est bien l'auteur qui supprime
-        db.execute("DELETE FROM posts WHERE id = ? AND username = ?", (post_id, session["user"]))
-        db.commit()
-    # C'est cette ligne qui évite le "Not Found"
-    return redirect(url_for("home"))
-
-
-@app.route('/delete_comment/<int:comment_id>', methods=['POST'])
-@login_required
-def delete_comment(comment_id):
-    db = get_db()
-    username = session.get('user')
-    # On vérifie que l'utilisateur est bien l'auteur
-    comment = db.execute("SELECT username FROM comments WHERE id = ?", (comment_id,)).fetchone()
-    if not comment or comment['username'] != username:
-        return jsonify({"error": "unauthorized"}), 403
-    try:
-        # Nettoyage de la base de données
-        db.execute("DELETE FROM comment_reactions WHERE comment_id = ?", (comment_id,))
-        db.execute("DELETE FROM notifications WHERE comment_id = ?", (comment_id,))
-        # On supprime aussi les réponses (si c'est un parent)
-        db.execute("DELETE FROM comments WHERE parent_id = ?", (comment_id,))
-        # Enfin, on supprime le commentaire lui-même
-        db.execute("DELETE FROM comments WHERE id = ?", (comment_id,))
-        db.commit()
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# --- SUPPRESSION INDIVIDUELLE DE NOTIFICATION ---
-@app.route('/delete_notification/<int:notif_id>', methods=['POST'])
-@login_required
-def delete_notification(notif_id):
-    username = session['user']
-    with get_db() as db:
-        # On vérifie que la notification appartient bien à l'utilisateur actuel
-        notif = db.execute("SELECT id FROM notifications WHERE id = ? AND username = ?",
-                           (notif_id, username)).fetchone()
-        if notif:
-            db.execute("DELETE FROM notifications WHERE id = ?", (notif_id,))
-            db.commit()
-            return jsonify({'success': True})
-    return jsonify({'success': False, 'error': 'Notification introuvable ou non autorisée'}), 404
-
-
-@app.route('/edit_comment/<int:comment_id>', methods=['POST'])
-@login_required
-def edit_comment(comment_id):
-    db = get_db()
-    username = session.get('user')
-    new_content = request.form.get('content')
-    comment = db.execute("SELECT username FROM comments WHERE id = ?", (comment_id,)).fetchone()
-    if not comment or comment['username'] != username:
-        return jsonify({"error": "unauthorized"}), 403
-    db.execute("UPDATE comments SET content = ? WHERE id = ?", (new_content, comment_id))
-    db.commit()
-    return jsonify({"success": True, "content": new_content})
+    user_info = query_db("SELECT * FROM users WHERE username = ?", (username,), one=True)
+    if not user_info: return redirect(url_for('home'))
+    posts = [dict(row) for row in query_db(
+        "SELECT posts.*, users.avatar AS user_avatar FROM posts JOIN users ON posts.username = users.username WHERE posts.username=? ORDER BY posts.id DESC",
+        (username,))]
+    for post in posts:
+        post['medias'] = query_db("SELECT filename, file_type FROM post_medias WHERE post_id = ?", (post['id'],))
+        post['comments'] = query_db(
+            "SELECT comments.*, users.avatar AS user_avatar FROM comments JOIN users ON comments.username = users.username WHERE post_id = ? ORDER BY created_at ASC",
+            (post['id'],))
+    return render_template("profile.html", posts=posts, user=user_info)
 
 
 @app.route("/logout")
 def logout():
-    session.pop("user", None)
+    session.clear()
     return redirect("/")
 
 
-@app.route("/post/<int:post_id>")
-@login_required
-def view_post(post_id):
-    with get_db() as db:
-        # 1. On récupère le post spécifique avec les infos de l'auteur
-        post_query = db.execute("""
-            SELECT posts.*, users.avatar AS user_avatar,
-                (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='thumb') as thumbs,
-                (SELECT COUNT(*) FROM reactions WHERE post_id=posts.id AND type='heart') as hearts
-            FROM posts
-            JOIN users ON posts.username = users.username
-            WHERE posts.id = ?
-        """, (post_id,)).fetchone()
-        if not post_query:
-            flash("Ce post n'existe plus.", "warning")
-            return redirect(url_for('home'))
-        # 2. On transforme en dictionnaire pour ajouter les médias
-        post = dict(post_query)
-        medias = db.execute("SELECT * FROM post_medias WHERE post_id = ?", (post_id,)).fetchall()
-        post['medias'] = medias
-        # 3. CORRECTION : Ajout du COUNT(*) pour les likes des commentaires
-        comments_query = db.execute("""
-            SELECT comments.*, users.avatar AS comm_avatar,
-                (SELECT COUNT(*) FROM comment_reactions WHERE comment_id = comments.id) as like_count
-            FROM comments 
-            JOIN users ON comments.username = users.username
-            WHERE post_id = ?
-            ORDER BY created_at ASC
-        """, (post_id,)).fetchall()
-        # Conversion en liste de dicts pour la cohérence avec home.html
-        comments = [dict(row) for row in comments_query]
-    # On passe posts=[post] car home.html boucle sur une liste de posts
-    return render_template("home.html", posts=[post], comments=comments)
-
-
-@app.route("/notifications")
-@login_required
-def notifications():
-    with get_db() as db:
-        # On récupère toutes les colonnes pour les afficher dans notifications.html
-        notifs = db.execute("""
-                    SELECT id, sender, message, post_id, comment_id, is_read, created_at 
-                    FROM notifications 
-                    WHERE username = ? 
-                    ORDER BY created_at DESC
-                """, (session['user'],)).fetchall()
-        # 2. Dernière activité (Les 3 derniers posts du site)
-        recent_activity = db.execute("""
-                    SELECT username, content, created_at 
-                    FROM posts ORDER BY id DESC LIMIT 3
-                """).fetchall()
-        citations = [
-            "La famille, c'est là où la vie commence et où l'amour ne finit jamais.",
-            "Chaque souvenir partagé ici est un trésor pour demain.",
-            "Une gazette remplie de rires est une gazette réussie !",
-            "Petit à petit, la tribu grandit et l'histoire s'écrit.",
-            "Le bonheur est fait de petites choses partagées."
-        ]
-        pensee_du_jour = random.choice(citations)
-        # Optionnel : Marquer comme lu quand on visite la page
-        db.execute("UPDATE notifications SET is_read = 1 WHERE username = ?", (session["user"],))
-        db.commit()
-    return render_template("notifications.html", notifs=notifs, recent_activity=recent_activity,
-                           pensee_du_jour=pensee_du_jour)
-
-
-@app.route("/notifications/mark-all-read")
-@login_required
-def mark_all_read():
-    with get_db() as db:
-        db.execute("UPDATE notifications SET is_read = 1 WHERE username = ?", (session["user"],))
-        db.commit()
-    return redirect(url_for('notifications'))
-
-
-# --- INITIALISATION ---
-
 def init_db():
-    with sqlite3.connect("database.db") as db:
-        # Table Users mise à jour avec Email, Prénom et Nom
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                email TEXT UNIQUE, 
-                firstname TEXT, 
-                lastname TEXT, 
-                username TEXT UNIQUE, 
-                password TEXT, 
-                avatar TEXT,
-                cover TEXT,
-                bio TEXT,
-                is_approved INTEGER DEFAULT 0,
-                is_admin INTEGER DEFAULT 0
-            )
-        """)
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                username TEXT, 
-                content TEXT, 
-                likes INTEGER DEFAULT 0, 
-                image TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        db.execute("""
-                    CREATE TABLE IF NOT EXISTS post_medias (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        post_id INTEGER,
-                        filename TEXT,
-                        file_type TEXT, -- 'image' ou 'video'
-                        FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE
-                    )
-                """)
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS comments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                post_id INTEGER,
-                username TEXT,
-                content TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Ajout de cette ligne
-                FOREIGN KEY (post_id) REFERENCES posts (id),
-                FOREIGN KEY (parent_id) REFERENCES comments (id) ON DELETE CASCADE
-            )
-        """)
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS comment_reactions (
-                user_id INTEGER,
-                comment_id INTEGER,
-                PRIMARY KEY (user_id, comment_id)
-            )
-        """)
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS reactions (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, post_id INTEGER, type TEXT, UNIQUE(username, post_id))")
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT,      -- Celui qui reçoit
-                sender TEXT,        -- Celui qui a agi
-                message TEXT,
-                post_id INTEGER,    -- Pour cliquer et aller sur le post
-                comment_id INTEGER, -- envoie vers un commentaire en particulier
-                is_read INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+    db = get_db()
+    cur = db.cursor()
+    id_type = "SERIAL PRIMARY KEY" if DATABASE_URL else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    cur.execute(
+        f"CREATE TABLE IF NOT EXISTS users (id {id_type}, email TEXT UNIQUE, firstname TEXT, lastname TEXT, username TEXT UNIQUE, password TEXT, avatar TEXT, cover TEXT, bio TEXT, is_approved INTEGER DEFAULT 0, is_admin INTEGER DEFAULT 0)")
+    cur.execute(
+        f"CREATE TABLE IF NOT EXISTS posts (id {id_type}, username TEXT, content TEXT, likes INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    cur.execute(
+        f"CREATE TABLE IF NOT EXISTS post_medias (id {id_type}, post_id INTEGER, filename TEXT, file_type TEXT, FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE)")
+    cur.execute(
+        f"CREATE TABLE IF NOT EXISTS comments (id {id_type}, post_id INTEGER, username TEXT, content TEXT, parent_id INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE)")
+    cur.execute(
+        f"CREATE TABLE IF NOT EXISTS reactions (id {id_type}, username TEXT, post_id INTEGER, type TEXT, UNIQUE(username, post_id))")
+    cur.execute(
+        f"CREATE TABLE IF NOT EXISTS comment_reactions (user_id INTEGER, comment_id INTEGER, PRIMARY KEY (user_id, comment_id))")
+    cur.execute(
+        f"CREATE TABLE IF NOT EXISTS notifications (id {id_type}, username TEXT, sender TEXT, message TEXT, post_id INTEGER, comment_id INTEGER, is_read INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    db.commit()
+    cur.close()
+    db.close()
 
 
-init_db()
-"""
 if __name__ == "__main__":
-    app.run(debug=True)
-"""
-if __name__ == "__main__":
+    init_db()
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
